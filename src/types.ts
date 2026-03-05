@@ -4,6 +4,7 @@ export interface Lesson {
   title: string;
   description?: string;
   youtube_url: string;
+  duration?: string;
   order_index: number;
 }
 

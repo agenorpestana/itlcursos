@@ -728,7 +728,7 @@ export default function App() {
                                 <Play className="w-4 h-4 text-nutror-muted group-hover:text-nutror-accent" />
                                 <span className="text-sm text-nutror-muted group-hover:text-white">{lesson.title}</span>
                               </div>
-                              <span className="text-xs text-nutror-muted">10:00</span>
+                              <span className="text-xs text-nutror-muted">{lesson.duration || '00:00'}</span>
                             </div>
                           ))}
                         </div>
@@ -1019,7 +1019,10 @@ export default function App() {
                                 selectedLesson.id === lesson.id ? 'text-nutror-accent font-medium' : 'text-nutror-muted group-hover:text-white'
                               }`}>{lesson.title}</span>
                             </div>
-                            {selectedLesson.id === lesson.id && <Play className="w-3 h-3 text-nutror-accent animate-pulse" />}
+                            <div className="flex items-center gap-2">
+                              {lesson.duration && <span className="text-[10px] text-nutror-muted font-bold">{lesson.duration}</span>}
+                              {selectedLesson.id === lesson.id && <Play className="w-3 h-3 text-nutror-accent animate-pulse" />}
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -1642,6 +1645,16 @@ export default function App() {
                 placeholder="https://www.youtube.com/watch?v=..."
               />
             </div>
+            <div>
+              <label className="block text-xs font-bold text-nutror-muted uppercase mb-1">Duração (MM:SS)</label>
+              <input 
+                type="text" 
+                value={modalData.duration || ''}
+                onChange={e => setModalData({...modalData, duration: e.target.value})}
+                className="w-full bg-nutror-bg border border-white/10 rounded-lg p-3 text-sm focus:outline-none focus:border-nutror-accent"
+                placeholder="Ex: 12:45"
+              />
+            </div>
 
             {modalData.youtube_url && getYoutubeEmbedUrl(modalData.youtube_url) && (
               <div className="space-y-2">
@@ -1675,6 +1688,7 @@ export default function App() {
                       title: modalData.title, 
                       description: modalData.description,
                       youtube_url: modalData.youtube_url, 
+                      duration: modalData.duration || '00:00',
                       order_index: 0 
                     })
                   });
@@ -1728,6 +1742,16 @@ export default function App() {
                 className="w-full bg-nutror-bg border border-white/10 rounded-lg p-3 text-sm focus:outline-none focus:border-nutror-accent"
               />
             </div>
+            <div>
+              <label className="block text-xs font-bold text-nutror-muted uppercase mb-1">Duração (MM:SS)</label>
+              <input 
+                type="text" 
+                value={modalData.duration || ''}
+                onChange={e => setModalData({...modalData, duration: e.target.value})}
+                className="w-full bg-nutror-bg border border-white/10 rounded-lg p-3 text-sm focus:outline-none focus:border-nutror-accent"
+                placeholder="Ex: 12:45"
+              />
+            </div>
 
             {modalData.youtube_url && getYoutubeEmbedUrl(modalData.youtube_url) && (
               <div className="space-y-2">
@@ -1760,6 +1784,7 @@ export default function App() {
                       title: modalData.title, 
                       description: modalData.description,
                       youtube_url: modalData.youtube_url, 
+                      duration: modalData.duration || '00:00',
                       order_index: 0 
                     })
                   });

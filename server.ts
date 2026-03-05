@@ -75,6 +75,7 @@ async function initDb() {
       title TEXT NOT NULL,
       description TEXT,
       youtube_url TEXT NOT NULL,
+      duration TEXT DEFAULT '00:00',
       order_index INTEGER DEFAULT 0,
       FOREIGN KEY (module_id) REFERENCES modules(id) ON DELETE CASCADE
     )`,
@@ -152,9 +153,12 @@ async function initDb() {
   // Migration: Ensure lessons table has description column (for existing databases)
   try {
     await query("ALTER TABLE lessons ADD COLUMN description TEXT");
-  } catch (err) {
-    // Column likely already exists or other error we can ignore for now
-  }
+  } catch (err) {}
+
+  // Migration: Ensure lessons table has duration column
+  try {
+    await query("ALTER TABLE lessons ADD COLUMN duration TEXT DEFAULT '00:00'");
+  } catch (err) {}
 
   // Create default admin if not exists
   const admins: any = await query("SELECT * FROM users WHERE role = 'admin'");
@@ -317,14 +321,14 @@ async function startServer() {
   });
 
   app.post("/api/lessons", async (req, res) => {
-    const { module_id, title, description, youtube_url, order_index } = req.body;
-    const result: any = await query("INSERT INTO lessons (module_id, title, description, youtube_url, order_index) VALUES (?, ?, ?, ?, ?)", [module_id, title, description, youtube_url, order_index]);
+    const { module_id, title, description, youtube_url, duration, order_index } = req.body;
+    const result: any = await query("INSERT INTO lessons (module_id, title, description, youtube_url, duration, order_index) VALUES (?, ?, ?, ?, ?, ?)", [module_id, title, description, youtube_url, duration || '00:00', order_index]);
     res.json({ id: result.insertId });
   });
 
   app.put("/api/lessons/:id", async (req, res) => {
-    const { title, description, youtube_url, order_index } = req.body;
-    await query("UPDATE lessons SET title = ?, description = ?, youtube_url = ?, order_index = ? WHERE id = ?", [title, description, youtube_url, order_index, req.params.id]);
+    const { title, description, youtube_url, duration, order_index } = req.body;
+    await query("UPDATE lessons SET title = ?, description = ?, youtube_url = ?, duration = ?, order_index = ? WHERE id = ?", [title, description, youtube_url, duration || '00:00', order_index, req.params.id]);
     res.json({ success: true });
   });
 
