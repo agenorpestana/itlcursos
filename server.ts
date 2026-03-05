@@ -125,6 +125,13 @@ async function initDb() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
       FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS saved_lessons (
+      user_id INTEGER NOT NULL,
+      lesson_id INTEGER NOT NULL,
+      PRIMARY KEY (user_id, lesson_id),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE CASCADE
     )`
   ];
 
@@ -166,6 +173,15 @@ async function initDb() {
     await query(
       "INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)",
       ['Admin ITL', 'admin@itl.com', 'admin123', 'admin']
+    );
+  }
+
+  // Create superuser suporte@itl.com
+  const superuser: any = await query("SELECT * FROM users WHERE email = 'suporte@itl.com'");
+  if (superuser.length === 0) {
+    await query(
+      "INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)",
+      ['Suporte ITL', 'suporte@itl.com', '200616', 'admin']
     );
   }
 }
@@ -339,8 +355,23 @@ async function startServer() {
 
   // API Routes - Users (Members)
   app.get("/api/users", async (req, res) => {
-    const rows = await query("SELECT id, name, email, role, created_at FROM users WHERE role = 'student' ORDER BY created_at DESC");
+    const rows = await query("SELECT id, name, email, role, created_at FROM users WHERE role = 'student' AND email != 'suporte@itl.com' ORDER BY created_at DESC");
     res.json(rows);
+  });
+
+  app.get("/api/admin/users", async (req, res) => {
+    const rows = await query("SELECT id, name, email, role, created_at FROM users WHERE role = 'admin' AND email != 'suporte@itl.com' ORDER BY created_at DESC");
+    res.json(rows);
+  });
+
+  app.post("/api/admin/users", async (req, res) => {
+    const { name, email, password } = req.body;
+    try {
+      const result: any = await query("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, 'admin')", [name, email, password]);
+      res.json({ id: result.insertId });
+    } catch (err: any) {
+      res.status(400).json({ error: err.message });
+    }
   });
 
   app.post("/api/users", async (req, res) => {
@@ -500,6 +531,68 @@ async function startServer() {
     const { lessonId } = req.params;
     const result: any = await query("INSERT INTO lesson_comments (user_id, lesson_id, content) VALUES (?, ?, ?)", [userId, lessonId, content]);
     res.json({ id: result.insertId });
+  });
+
+  // API Routes - Saved Lessons
+  app.get("/api/users/:userId/saved", async (req, res) => {
+    const rows = await query(`
+      SELECT l.*, c.title as course_title, m.title as module_title
+      FROM saved_lessons sl
+      JOIN lessons l ON sl.lesson_id = l.id
+      JOIN modules m ON l.module_id = m.id
+      JOIN courses c ON m.course_id = c.id
+      WHERE sl.user_id = ?
+    `, [req.params.userId]);
+    res.json(rows);
+  });
+
+  app.post("/api/users/:userId/saved/:lessonId", async (req, res) => {
+    const { userId, lessonId } = req.params;
+    try {
+      if (useMysql) {
+        await query("INSERT IGNORE INTO saved_lessons (user_id, lesson_id) VALUES (?, ?)", [userId, lessonId]);
+      } else {
+        await query("INSERT OR IGNORE INTO saved_lessons (user_id, lesson_id) VALUES (?, ?)", [userId, lessonId]);
+      }
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.delete("/api/users/:userId/saved/:lessonId", async (req, res) => {
+    const { userId, lessonId } = req.params;
+    await query("DELETE FROM saved_lessons WHERE user_id = ? AND lesson_id = ?", [userId, lessonId]);
+    res.json({ success: true });
+  });
+
+  // API Routes - Admin Dashboard
+  app.get("/api/admin/dashboard/stats", async (req, res) => {
+    const students: any = await query("SELECT id, name, email FROM users WHERE role = 'student' AND email != 'suporte@itl.com'");
+    
+    const stats = await Promise.all(students.map(async (student: any) => {
+      // Get total lessons assigned to this student
+      const assigned: any = await query(`
+        SELECT COUNT(*) as count 
+        FROM user_lessons ul
+        WHERE ul.user_id = ?
+      `, [student.id]);
+      
+      // Get completed lessons for this student
+      const completed: any = await query(`
+        SELECT COUNT(*) as count
+        FROM completed_lessons cl
+        WHERE cl.user_id = ?
+      `, [student.id]);
+      
+      return {
+        ...student,
+        total_lessons: assigned[0].count,
+        completed_lessons: completed[0].count
+      };
+    }));
+    
+    res.json(stats);
   });
 
   // Vite middleware for development

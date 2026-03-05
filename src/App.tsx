@@ -71,9 +71,18 @@ const Header = ({ onAdminClick, user, onLogout, setView, currentView }: { onAdmi
         >
           Meus Cursos
         </button>
-        <a href="#" className="hover:text-white transition-colors">Portais</a>
-        <a href="#" className="hover:text-white transition-colors">Certificados</a>
-        <a href="#" className="hover:text-white transition-colors">Aulas Salvas</a>
+        <button 
+          onClick={() => setView('certificates')} 
+          className={`${currentView === 'certificates' ? 'text-white border-b-2 border-nutror-accent pb-1' : 'hover:text-white transition-colors'}`}
+        >
+          Certificados
+        </button>
+        <button 
+          onClick={() => setView('saved')} 
+          className={`${currentView === 'saved' ? 'text-white border-b-2 border-nutror-accent pb-1' : 'hover:text-white transition-colors'}`}
+        >
+          Aulas Salvas
+        </button>
         <button 
           onClick={() => setView('notes')} 
           className={`${currentView === 'notes' ? 'text-white border-b-2 border-nutror-accent pb-1' : 'hover:text-white transition-colors'}`}
@@ -96,12 +105,6 @@ const Header = ({ onAdminClick, user, onLogout, setView, currentView }: { onAdmi
           <Settings className="w-5 h-5" />
         </button>
       )}
-      <button className="p-2 hover:bg-white/5 rounded-full transition-colors text-nutror-muted hover:text-white">
-        <Bell className="w-5 h-5" />
-      </button>
-      <button className="p-2 hover:bg-white/5 rounded-full transition-colors text-nutror-muted hover:text-white">
-        <HelpCircle className="w-5 h-5" />
-      </button>
       <div className="flex items-center gap-2 pl-2 border-l border-white/10 group relative">
         <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center overflow-hidden">
           <UserIcon className="w-5 h-5 text-nutror-muted" />
@@ -188,8 +191,8 @@ const CourseCard = ({ course, onClick }: { course: Course, onClick: (c: Course) 
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [view, setView] = useState<'login' | 'home' | 'course' | 'lesson' | 'admin' | 'notes'>('login');
-  const [adminTab, setAdminTab] = useState<'courses' | 'members'>('courses');
+  const [view, setView] = useState<'login' | 'home' | 'course' | 'lesson' | 'admin' | 'notes' | 'saved' | 'certificates'>('login');
+  const [adminTab, setAdminTab] = useState<'dashboard' | 'courses' | 'members' | 'users'>('dashboard');
   const [courses, setCourses] = useState<Course[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
@@ -203,6 +206,9 @@ export default function App() {
   const [lessonTab, setLessonTab] = useState<'description' | 'comments' | 'notes'>('description');
   const [newNote, setNewNote] = useState('');
   const [newComment, setNewComment] = useState('');
+  const [dashboardStats, setDashboardStats] = useState<any[]>([]);
+  const [savedLessons, setSavedLessons] = useState<Lesson[]>([]);
+  const [adminUsers, setAdminUsers] = useState<User[]>([]);
 
   // Login form state
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
@@ -242,8 +248,11 @@ export default function App() {
     fetchCourses(user);
     if (user.role === 'admin') {
       fetchUsers();
+      fetchDashboardStats();
+      fetchAdminUsers();
     }
     fetchAllUserNotes(user.id);
+    fetchSavedLessons(user.id);
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -297,6 +306,48 @@ export default function App() {
       const res = await fetch('/api/users');
       const data = await res.json();
       setUsers(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchAdminUsers = async () => {
+    try {
+      const res = await fetch('/api/admin/users');
+      const data = await res.json();
+      setAdminUsers(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchDashboardStats = async () => {
+    try {
+      const res = await fetch('/api/admin/dashboard/stats');
+      const data = await res.json();
+      setDashboardStats(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchSavedLessons = async (userId: number) => {
+    try {
+      const res = await fetch(`/api/users/${userId}/saved`);
+      const data = await res.json();
+      setSavedLessons(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const toggleSaveLesson = async (lessonId: number) => {
+    if (!currentUser) return;
+    const isSaved = savedLessons.some(l => l.id === lessonId);
+    const method = isSaved ? 'DELETE' : 'POST';
+    try {
+      await fetch(`/api/users/${currentUser.id}/saved/${lessonId}`, { method });
+      fetchSavedLessons(currentUser.id);
     } catch (err) {
       console.error(err);
     }
@@ -724,11 +775,26 @@ export default function App() {
                               onClick={() => handleLessonClick(lesson)}
                               className="p-4 pl-16 flex items-center justify-between hover:bg-white/5 cursor-pointer group transition-colors"
                             >
-                              <div className="flex items-center gap-3">
-                                <Play className="w-4 h-4 text-nutror-muted group-hover:text-nutror-accent" />
-                                <span className="text-sm text-nutror-muted group-hover:text-white">{lesson.title}</span>
+                              <div className="flex items-center gap-4">
+                                <div className="flex items-center gap-3">
+                                  <Play className="w-4 h-4 text-nutror-muted group-hover:text-nutror-accent" />
+                                  <span className="text-sm text-nutror-muted group-hover:text-white">{lesson.title}</span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <button 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      toggleSaveLesson(lesson.id);
+                                    }}
+                                    className={`p-1.5 hover:bg-white/5 rounded-lg transition-colors ${
+                                      savedLessons.some(l => l.id === lesson.id) ? 'text-nutror-accent' : 'text-nutror-muted opacity-0 group-hover:opacity-100'
+                                    }`}
+                                  >
+                                    <Bookmark className={`w-3.5 h-3.5 ${savedLessons.some(l => l.id === lesson.id) ? 'fill-current' : ''}`} />
+                                  </button>
+                                  <span className="text-xs text-nutror-muted">{lesson.duration || '00:00'}</span>
+                                </div>
                               </div>
-                              <span className="text-xs text-nutror-muted">{lesson.duration || '00:00'}</span>
                             </div>
                           ))}
                         </div>
@@ -776,7 +842,15 @@ export default function App() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button className="p-2 hover:bg-white/5 rounded-full text-nutror-muted"><Bookmark className="w-5 h-5" /></button>
+                    <button 
+                      onClick={() => toggleSaveLesson(selectedLesson.id)}
+                      className={`p-2 hover:bg-white/5 rounded-full transition-colors ${
+                        savedLessons.some(l => l.id === selectedLesson.id) ? 'text-nutror-accent' : 'text-nutror-muted'
+                      }`}
+                      title={savedLessons.some(l => l.id === selectedLesson.id) ? 'Remover das aulas salvas' : 'Salvar aula'}
+                    >
+                      <Bookmark className={`w-5 h-5 ${savedLessons.some(l => l.id === selectedLesson.id) ? 'fill-current' : ''}`} />
+                    </button>
                     <button className="p-2 hover:bg-white/5 rounded-full text-nutror-muted"><FileText className="w-5 h-5" /></button>
                   </div>
                 </div>
@@ -1020,6 +1094,17 @@ export default function App() {
                               }`}>{lesson.title}</span>
                             </div>
                             <div className="flex items-center gap-2">
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleSaveLesson(lesson.id);
+                                }}
+                                className={`p-1.5 hover:bg-white/5 rounded-lg transition-colors ${
+                                  savedLessons.some(l => l.id === lesson.id) ? 'text-nutror-accent' : 'text-nutror-muted opacity-0 group-hover:opacity-100'
+                                }`}
+                              >
+                                <Bookmark className={`w-3 h-3 ${savedLessons.some(l => l.id === lesson.id) ? 'fill-current' : ''}`} />
+                              </button>
                               {lesson.duration && <span className="text-[10px] text-nutror-muted font-bold">{lesson.duration}</span>}
                               {selectedLesson.id === lesson.id && <Play className="w-3 h-3 text-nutror-accent animate-pulse" />}
                             </div>
@@ -1033,9 +1118,161 @@ export default function App() {
             </motion.div>
           )}
 
+          {view === 'saved' && (
+            <motion.div 
+              key="saved"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="max-w-5xl mx-auto px-6 py-12"
+            >
+              <div className="flex items-center justify-between mb-12">
+                <div>
+                  <h1 className="text-4xl font-bold mb-2">Aulas Salvas</h1>
+                  <p className="text-nutror-muted">Suas aulas favoritas organizadas em um só lugar.</p>
+                </div>
+                <div className="w-12 h-12 rounded-2xl bg-nutror-accent/10 flex items-center justify-center text-nutror-accent">
+                  <Bookmark className="w-6 h-6 fill-current" />
+                </div>
+              </div>
+
+              {savedLessons.length === 0 ? (
+                <div className="bg-nutror-card rounded-3xl p-12 text-center border border-white/5">
+                  <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-6">
+                    <Bookmark className="w-8 h-8 text-nutror-muted" />
+                  </div>
+                  <h3 className="text-xl font-bold mb-2">Nenhuma aula salva</h3>
+                  <p className="text-nutror-muted max-w-sm mx-auto">
+                    Salve suas aulas favoritas para acessá-las rapidamente aqui.
+                  </p>
+                  <button 
+                    onClick={() => setView('home')}
+                    className="mt-8 bg-white text-black px-8 py-3 rounded-xl font-bold hover:bg-zinc-200 transition-colors"
+                  >
+                    Explorar Cursos
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  {savedLessons.map(lesson => (
+                    <motion.div 
+                      key={lesson.id}
+                      layout
+                      className="bg-nutror-card rounded-2xl border border-white/5 overflow-hidden hover:border-nutror-accent/30 transition-all group"
+                    >
+                      <div className="aspect-video relative">
+                        <img 
+                          src={`https://img.youtube.com/vi/${getYoutubeEmbedUrl(lesson.youtube_url).split('/').pop()}/mqdefault.jpg`} 
+                          alt={lesson.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          referrerPolicy="no-referrer"
+                        />
+                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button 
+                            onClick={async () => {
+                              const course = courses.find(c => c.id === (lesson as any).course_id) || await fetchCourseDetails((lesson as any).course_id, currentUser?.id);
+                              if (course) {
+                                setSelectedCourse(course);
+                                handleLessonClick(lesson);
+                              }
+                            }}
+                            className="bg-nutror-accent text-black w-12 h-12 rounded-full flex items-center justify-center"
+                          >
+                            <Play className="w-6 h-6 fill-current" />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="p-4">
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <p className="text-[10px] font-bold text-nutror-accent uppercase tracking-widest mb-1">{(lesson as any).course_title}</p>
+                            <h3 className="font-bold text-sm line-clamp-1">{lesson.title}</h3>
+                          </div>
+                          <button 
+                            onClick={() => toggleSaveLesson(lesson.id)}
+                            className="text-nutror-accent p-1 hover:bg-white/5 rounded-lg"
+                          >
+                            <Bookmark className="w-4 h-4 fill-current" />
+                          </button>
+                        </div>
+                        <p className="text-xs text-nutror-muted">{(lesson as any).module_title}</p>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {view === 'certificates' && (
+            <motion.div 
+              key="certificates"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="max-w-5xl mx-auto px-6 py-12"
+            >
+              <div className="flex items-center justify-between mb-12">
+                <div>
+                  <h1 className="text-4xl font-bold mb-2">Meus Certificados</h1>
+                  <p className="text-nutror-muted">Conclua seus cursos para emitir seus certificados de conclusão.</p>
+                </div>
+                <div className="w-12 h-12 rounded-2xl bg-nutror-accent/10 flex items-center justify-center text-nutror-accent">
+                  <Award className="w-6 h-6" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {courses.filter(c => {
+                  const percent = c.lesson_count ? Math.round(((c.completed_count || 0) / c.lesson_count) * 100) : 0;
+                  return percent === 100;
+                }).map(course => (
+                  <div key={course.id} className="bg-nutror-card rounded-3xl border border-white/10 p-8 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-nutror-accent/5 rounded-bl-full -mr-16 -mt-16 group-hover:scale-110 transition-transform" />
+                    <div className="relative z-10">
+                      <div className="w-12 h-12 rounded-xl bg-nutror-accent/20 flex items-center justify-center text-nutror-accent mb-6">
+                        <Award className="w-6 h-6" />
+                      </div>
+                      <h3 className="text-2xl font-bold mb-2">{course.title}</h3>
+                      <p className="text-nutror-muted text-sm mb-8">Concluído em {new Date().toLocaleDateString()}</p>
+                      
+                      <div className="flex items-center gap-4">
+                        <button className="bg-nutror-accent text-black px-6 py-3 rounded-xl font-bold text-sm hover:brightness-110 transition-all flex items-center gap-2">
+                          <ExternalLink className="w-4 h-4" /> Visualizar Certificado
+                        </button>
+                        <button className="bg-white/5 hover:bg-white/10 text-white px-6 py-3 rounded-xl font-bold text-sm transition-all">
+                          Download PDF
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {courses.filter(c => {
+                  const percent = c.lesson_count ? Math.round(((c.completed_count || 0) / c.lesson_count) * 100) : 0;
+                  return percent === 100;
+                }).length === 0 && (
+                  <div className="col-span-full bg-nutror-card rounded-3xl p-12 text-center border border-white/5">
+                    <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-6">
+                      <Award className="w-8 h-8 text-nutror-muted opacity-20" />
+                    </div>
+                    <h3 className="text-xl font-bold mb-2">Nenhum certificado disponível</h3>
+                    <p className="text-nutror-muted max-w-sm mx-auto">
+                      Conclua 100% das aulas de um curso para liberar seu certificado de conclusão.
+                    </p>
+                    <button 
+                      onClick={() => setView('home')}
+                      className="mt-8 bg-white text-black px-8 py-3 rounded-xl font-bold hover:bg-zinc-200 transition-colors"
+                    >
+                      Continuar Estudando
+                    </button>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
           {view === 'notes' && (
             <motion.div 
-              key="notes"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
@@ -1131,6 +1368,12 @@ export default function App() {
 
               <div className="flex gap-4 mb-8 border-b border-white/5">
                 <button 
+                  onClick={() => setAdminTab('dashboard')}
+                  className={`pb-4 px-4 text-sm font-bold transition-colors ${adminTab === 'dashboard' ? 'text-nutror-accent border-b-2 border-nutror-accent' : 'text-nutror-muted hover:text-white'}`}
+                >
+                  Dashboard
+                </button>
+                <button 
                   onClick={() => setAdminTab('courses')}
                   className={`pb-4 px-4 text-sm font-bold transition-colors ${adminTab === 'courses' ? 'text-nutror-accent border-b-2 border-nutror-accent' : 'text-nutror-muted hover:text-white'}`}
                 >
@@ -1142,9 +1385,76 @@ export default function App() {
                 >
                   Membros (Alunos)
                 </button>
+                <button 
+                  onClick={() => setAdminTab('users')}
+                  className={`pb-4 px-4 text-sm font-bold transition-colors ${adminTab === 'users' ? 'text-nutror-accent border-b-2 border-nutror-accent' : 'text-nutror-muted hover:text-white'}`}
+                >
+                  Usuários
+                </button>
               </div>
 
-              {adminTab === 'courses' ? (
+              {adminTab === 'dashboard' && (
+                <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="bg-nutror-card p-6 rounded-2xl border border-white/5">
+                      <p className="text-xs font-bold text-nutror-muted uppercase mb-1">Total de Alunos</p>
+                      <p className="text-3xl font-bold">{dashboardStats.length}</p>
+                    </div>
+                    <div className="bg-nutror-card p-6 rounded-2xl border border-white/5">
+                      <p className="text-xs font-bold text-nutror-muted uppercase mb-1">Cursos Ativos</p>
+                      <p className="text-3xl font-bold">{courses.length}</p>
+                    </div>
+                    <div className="bg-nutror-card p-6 rounded-2xl border border-white/5">
+                      <p className="text-xs font-bold text-nutror-muted uppercase mb-1">Aulas Totais</p>
+                      <p className="text-3xl font-bold">{courses.reduce((acc, c) => acc + (c.lesson_count || 0), 0)}</p>
+                    </div>
+                  </div>
+
+                  <div className="bg-nutror-card rounded-2xl border border-white/5 overflow-hidden">
+                    <div className="p-6 border-b border-white/5">
+                      <h2 className="text-xl font-bold">Desempenho dos Membros</h2>
+                      <p className="text-sm text-nutror-muted">Acompanhe o progresso individual de cada aluno.</p>
+                    </div>
+                    <div className="divide-y divide-white/5">
+                      {dashboardStats.map(stat => {
+                        const percent = stat.total_lessons > 0 ? Math.round((stat.completed_lessons / stat.total_lessons) * 100) : 0;
+                        return (
+                          <div key={stat.id} className="p-6 flex items-center justify-between hover:bg-white/5 transition-colors">
+                            <div className="flex items-center gap-4">
+                              <div className="w-10 h-10 rounded-full bg-nutror-accent/10 text-nutror-accent flex items-center justify-center font-bold">
+                                {stat.name.charAt(0)}
+                              </div>
+                              <div>
+                                <p className="font-bold">{stat.name}</p>
+                                <p className="text-xs text-nutror-muted">{stat.email}</p>
+                              </div>
+                            </div>
+                            <div className="w-64">
+                              <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider text-nutror-muted mb-1">
+                                <span>Progresso</span>
+                                <span>{percent}%</span>
+                              </div>
+                              <div className="w-full bg-white/10 h-1.5 rounded-full overflow-hidden">
+                                <div className="bg-nutror-accent h-full" style={{ width: `${percent}%` }} />
+                              </div>
+                              <p className="text-[10px] text-nutror-muted mt-1">
+                                {stat.completed_lessons} de {stat.total_lessons} aulas concluídas
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {dashboardStats.length === 0 && (
+                        <div className="p-12 text-center text-nutror-muted">
+                          Nenhum aluno cadastrado para exibir estatísticas.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {adminTab === 'courses' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
                   {/* Add Course */}
                   <div className="bg-nutror-card p-8 rounded-2xl border border-white/5 h-fit">
@@ -1315,8 +1625,10 @@ export default function App() {
                     ))}
                   </div>
                 </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              )}
+
+              {adminTab === 'members' && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                   {/* Add Member */}
                   <div className="bg-nutror-card p-6 rounded-2xl border border-white/5 h-fit">
                     <h2 className="text-lg font-bold mb-6 flex items-center gap-2">
@@ -1437,6 +1749,111 @@ export default function App() {
                         <p className="text-xs text-nutror-muted">Selecione um aluno para gerenciar acessos</p>
                       </div>
                     )}
+                  </div>
+                </div>
+              )}
+
+              {adminTab === 'users' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  {/* Add Admin User */}
+                  <div className="bg-nutror-card p-8 rounded-2xl border border-white/5 h-fit">
+                    <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
+                      <Settings className="w-5 h-5 text-nutror-accent" /> Novo Usuário Administrativo
+                    </h2>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-bold text-nutror-muted uppercase mb-1">Nome</label>
+                        <input 
+                          type="text" 
+                          value={newUser.name}
+                          onChange={e => setNewUser({...newUser, name: e.target.value})}
+                          className="w-full bg-nutror-bg border border-white/10 rounded-lg p-3 text-sm focus:outline-none focus:border-nutror-accent"
+                          placeholder="Nome Completo"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-nutror-muted uppercase mb-1">E-mail</label>
+                        <input 
+                          type="email" 
+                          value={newUser.email}
+                          onChange={e => setNewUser({...newUser, email: e.target.value})}
+                          className="w-full bg-nutror-bg border border-white/10 rounded-lg p-3 text-sm focus:outline-none focus:border-nutror-accent"
+                          placeholder="email@itl.com"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-nutror-muted uppercase mb-1">Senha</label>
+                        <input 
+                          type="password" 
+                          value={newUser.password}
+                          onChange={e => setNewUser({...newUser, password: e.target.value})}
+                          className="w-full bg-nutror-bg border border-white/10 rounded-lg p-3 text-sm focus:outline-none focus:border-nutror-accent"
+                          placeholder="Defina uma senha"
+                        />
+                      </div>
+                      <button 
+                        onClick={async () => {
+                          if (!newUser.name || !newUser.email || !newUser.password) {
+                            alert('Preencha todos os campos.');
+                            return;
+                          }
+                          try {
+                            const res = await fetch('/api/admin/users', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify(newUser)
+                            });
+                            if (res.ok) {
+                              setNewUser({ name: '', email: '', password: '' });
+                              fetchAdminUsers();
+                              alert('Usuário administrativo cadastrado com sucesso!');
+                            } else {
+                              const err = await res.json();
+                              alert(`Erro: ${err.error}`);
+                            }
+                          } catch (err) {
+                            alert('Erro de conexão.');
+                          }
+                        }}
+                        className="w-full bg-nutror-accent text-black font-bold py-3 rounded-lg hover:brightness-110 transition-all"
+                      >
+                        Cadastrar Usuário Administrativo
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Admin Users List */}
+                  <div className="space-y-4">
+                    <h2 className="text-xl font-bold mb-4">Usuários com Permissão Total</h2>
+                    <div className="grid grid-cols-1 gap-4">
+                      {adminUsers.map(user => (
+                        <div key={user.id} className="bg-nutror-card p-6 rounded-2xl border border-white/5 flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-full bg-nutror-accent/10 text-nutror-accent flex items-center justify-center font-bold">
+                              {user.name.charAt(0)}
+                            </div>
+                            <div>
+                              <p className="font-bold">{user.name}</p>
+                              <p className="text-xs text-nutror-muted">{user.email}</p>
+                            </div>
+                          </div>
+                          <button 
+                            onClick={async () => {
+                              if (confirm('Deseja excluir este usuário administrativo?')) {
+                                await fetch(`/api/users/${user.id}`, { method: 'DELETE' });
+                                fetchAdminUsers();
+                              }
+                            }}
+                            className="p-2 hover:bg-red-500/10 rounded-lg text-red-500"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        </div>
+                      ))}
+                      {adminUsers.length === 0 && (
+                        <p className="text-nutror-muted text-center py-8">Nenhum outro usuário administrativo cadastrado.</p>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
