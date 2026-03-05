@@ -33,20 +33,22 @@ if (useMysql) {
 
 // Helper to run queries on either DB
 async function query(sql: string, params: any[] = []) {
-  if (useMysql) {
-    const [rows] = await pool.query(sql, params);
-    return rows;
-  } else {
-    const stmt = sqliteDb.prepare(sql.replace(/\?/g, (match: string, offset: number, string: string) => {
-      // SQLite uses ? for placeholders too, so no change needed for simple cases
-      return '?';
-    }));
-    if (sql.trim().toUpperCase().startsWith('SELECT')) {
-      return stmt.all(...params);
+  try {
+    if (useMysql) {
+      const [rows] = await pool.query(sql, params);
+      return rows;
     } else {
-      const result = stmt.run(...params);
-      return { insertId: result.lastInsertRowid, affectedRows: result.changes };
+      const stmt = sqliteDb.prepare(sql);
+      if (sql.trim().toUpperCase().startsWith('SELECT')) {
+        return stmt.all(...params);
+      } else {
+        const result = stmt.run(...params);
+        return { insertId: result.lastInsertRowid, affectedRows: result.changes };
+      }
     }
+  } catch (error) {
+    console.error(`Database Error [${sql}]:`, error);
+    throw error;
   }
 }
 
