@@ -132,7 +132,26 @@ async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT) || 3000;
 
+  // Error handling for the process
+  process.on('uncaughtException', (err) => {
+    console.error('ERRO CRÍTICO (Uncaught Exception):', err);
+  });
+
+  process.on('unhandledRejection', (reason, promise) => {
+    console.error('PROMISSA REJEITADA NÃO TRATADA:', reason);
+  });
+
   app.use(express.json());
+
+  // Health Check for Nginx debugging
+  app.get("/api/ping", (req, res) => {
+    res.json({ 
+      status: "online", 
+      time: new Date().toISOString(),
+      port: PORT,
+      db: useMysql ? 'MySQL' : 'SQLite'
+    });
+  });
 
   // Auth Route
   app.post("/api/login", async (req, res) => {
@@ -252,12 +271,14 @@ async function startServer() {
   }
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`-----------------------------------------`);
-    console.log(`ITL CURSOS INICIADO COM SUCESSO`);
+    console.log(`\n=========================================`);
+    console.log(`   ITL CURSOS - STATUS DO SERVIDOR`);
+    console.log(`=========================================`);
     console.log(`Porta: ${PORT}`);
     console.log(`Modo: ${process.env.NODE_ENV || 'development'}`);
     console.log(`Banco: ${useMysql ? 'MySQL' : 'SQLite'}`);
-    console.log(`-----------------------------------------`);
+    console.log(`URL Local: http://localhost:${PORT}`);
+    console.log(`=========================================\n`);
   });
 }
 
