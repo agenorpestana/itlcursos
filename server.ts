@@ -91,6 +91,13 @@ async function initDb() {
       PRIMARY KEY (user_id, course_id),
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
       FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS user_lessons (
+      user_id INTEGER NOT NULL,
+      lesson_id INTEGER NOT NULL,
+      PRIMARY KEY (user_id, lesson_id),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE CASCADE
     )`
   ];
 
@@ -183,6 +190,7 @@ async function startServer() {
   });
 
   app.get("/api/courses/:id", async (req, res) => {
+    const { userId } = req.query;
     const courses: any = await query("SELECT * FROM courses WHERE id = ?", [req.params.id]);
     const course = courses[0];
     if (!course) return res.status(404).json({ error: "Course not found" });
@@ -190,7 +198,20 @@ async function startServer() {
     const modules: any = await query("SELECT * FROM modules WHERE course_id = ? ORDER BY order_index ASC", [req.params.id]);
     
     const modulesWithLessons = await Promise.all(modules.map(async (mod: any) => {
-      const lessons = await query("SELECT * FROM lessons WHERE module_id = ? ORDER BY order_index ASC", [mod.id]);
+      let lessonsSql = "SELECT * FROM lessons WHERE module_id = ? ORDER BY order_index ASC";
+      let lessonsParams: any[] = [mod.id];
+
+      if (userId) {
+        lessonsSql = `
+          SELECT l.* FROM lessons l
+          JOIN user_lessons ul ON l.id = ul.lesson_id
+          WHERE l.module_id = ? AND ul.user_id = ?
+          ORDER BY l.order_index ASC
+        `;
+        lessonsParams = [mod.id, userId];
+      }
+
+      const lessons = await query(lessonsSql, lessonsParams);
       return { ...mod, lessons };
     }));
 
@@ -219,6 +240,16 @@ async function startServer() {
     const { module_id, title, youtube_url, order_index } = req.body;
     const result: any = await query("INSERT INTO lessons (module_id, title, youtube_url, order_index) VALUES (?, ?, ?)", [module_id, title, youtube_url, order_index]);
     res.json({ id: result.insertId });
+  });
+
+  app.delete("/api/lessons/:id", async (req, res) => {
+    await query("DELETE FROM lessons WHERE id = ?", [req.params.id]);
+    res.json({ success: true });
+  });
+
+  app.delete("/api/lessons/:id", async (req, res) => {
+    await query("DELETE FROM lessons WHERE id = ?", [req.params.id]);
+    res.json({ success: true });
   });
 
   // API Routes - Users (Members)
@@ -265,6 +296,29 @@ async function startServer() {
   app.delete("/api/users/:id/courses/:courseId", async (req, res) => {
     await query("DELETE FROM user_courses WHERE user_id = ? AND course_id = ?", [req.params.id, req.params.courseId]);
     res.json({ success: true });
+  });
+
+  // API Routes - User Lesson Permissions (Granular)
+  app.get("/api/users/:id/lessons", async (req, res) => {
+    const rows = await query(`
+      SELECT lesson_id FROM user_lessons WHERE user_id = ?
+    `, [req.params.id]);
+    res.json(rows.map((r: any) => r.lesson_id));
+  });
+
+  app.post("/api/users/:id/lessons", async (req, res) => {
+    const { lesson_ids } = req.body; // Array of IDs
+    try {
+      await query("DELETE FROM user_lessons WHERE user_id = ?", [req.params.id]);
+      if (lesson_ids && lesson_ids.length > 0) {
+        for (const lessonId of lesson_ids) {
+          await query("INSERT INTO user_lessons (user_id, lesson_id) VALUES (?, ?)", [req.params.id, lessonId]);
+        }
+      }
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(400).json({ error: err.message });
+    }
   });
 
   // Vite middleware for development

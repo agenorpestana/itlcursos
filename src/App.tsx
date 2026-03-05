@@ -24,6 +24,38 @@ import { Course, Module, Lesson, User } from './types';
 
 // --- Components ---
 
+const Modal = ({ isOpen, onClose, title, children }: { isOpen: boolean, onClose: () => void, title: string, children: React.ReactNode }) => (
+  <AnimatePresence>
+    {isOpen && (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={onClose}
+          className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+        />
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: 20 }}
+          className="relative w-full max-w-lg bg-nutror-card rounded-3xl border border-white/10 shadow-2xl overflow-hidden"
+        >
+          <div className="p-6 border-b border-white/5 flex items-center justify-between">
+            <h3 className="text-xl font-bold">{title}</h3>
+            <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-full transition-colors">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="p-6 max-h-[70vh] overflow-y-auto">
+            {children}
+          </div>
+        </motion.div>
+      </div>
+    )}
+  </AnimatePresence>
+);
+
 const Header = ({ onAdminClick, user, onLogout }: { onAdminClick: () => void, user: User | null, onLogout: () => void }) => (
   <header className="sticky top-0 z-50 glass border-b border-white/5 px-6 py-3 flex items-center justify-between">
     <div className="flex items-center gap-8">
@@ -134,8 +166,15 @@ export default function App() {
 
   // Admin state
   const [newCourse, setNewCourse] = useState({ title: '', description: '', thumbnail: '' });
-  const [newUser, setNewUser] = useState({ name: '', email: '', password: '123' });
+  const [newUser, setNewUser] = useState({ name: '', email: '', password: '' });
   const [userCourses, setUserCourses] = useState<Course[]>([]);
+  const [userLessonIds, setUserLessonIds] = useState<number[]>([]);
+
+  // Modal states
+  const [modalType, setModalType] = useState<'module' | 'lesson' | 'permissions' | null>(null);
+  const [activeCourseId, setActiveCourseId] = useState<number | null>(null);
+  const [activeModuleId, setActiveModuleId] = useState<number | null>(null);
+  const [modalData, setModalData] = useState<any>({});
 
   useEffect(() => {
     // Check if user is already logged in (simple session simulation)
@@ -216,14 +255,19 @@ export default function App() {
       const res = await fetch(`/api/users/${userId}/courses`);
       const data = await res.json();
       setUserCourses(data);
+      
+      const resLessons = await fetch(`/api/users/${userId}/lessons`);
+      const dataLessons = await resLessons.json();
+      setUserLessonIds(dataLessons);
     } catch (err) {
       console.error(err);
     }
   };
 
-  const fetchCourseDetails = async (id: number) => {
+  const fetchCourseDetails = async (id: number, userId?: number) => {
     try {
-      const res = await fetch(`/api/courses/${id}`);
+      const url = userId ? `/api/courses/${id}?userId=${userId}` : `/api/courses/${id}`;
+      const res = await fetch(url);
       const data = await res.json();
       setSelectedCourse(data);
       return data;
@@ -233,7 +277,7 @@ export default function App() {
   };
 
   const handleCourseClick = async (course: Course) => {
-    const details = await fetchCourseDetails(course.id);
+    const details = await fetchCourseDetails(course.id, currentUser?.role === 'student' ? currentUser.id : undefined);
     if (details) {
       setView('course');
     }
@@ -262,13 +306,16 @@ export default function App() {
   };
 
   const handleAddUser = async () => {
-    if (!newUser.name || !newUser.email) return;
+    if (!newUser.name || !newUser.email || !newUser.password) {
+      alert('Preencha todos os campos, incluindo a senha.');
+      return;
+    }
     await fetch('/api/users', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newUser)
     });
-    setNewUser({ name: '', email: '', password: '123' });
+    setNewUser({ name: '', email: '', password: '' });
     fetchUsers();
   };
 
@@ -288,8 +335,33 @@ export default function App() {
   };
 
   const handleRevokeAccess = async (userId: number, courseId: number) => {
+    if (!confirm('Deseja revogar o acesso a este curso?')) return;
     await fetch(`/api/users/${userId}/courses/${courseId}`, { method: 'DELETE' });
     fetchUserCourses(userId);
+  };
+
+  const handleSavePermissions = async () => {
+    if (!selectedUser) return;
+    setLoading(true);
+    try {
+      await fetch(`/api/users/${selectedUser.id}/lessons`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lesson_ids: userLessonIds })
+      });
+      setModalType(null);
+      alert('Permissões salvas com sucesso!');
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleLessonPermission = (lessonId: number) => {
+    setUserLessonIds(prev => 
+      prev.includes(lessonId) ? prev.filter(id => id !== lessonId) : [...prev, lessonId]
+    );
   };
 
   const getYoutubeEmbedUrl = (url: string) => {
@@ -693,50 +765,71 @@ export default function App() {
                   <div className="space-y-6">
                     <h2 className="text-xl font-bold mb-4">Cursos Ativos</h2>
                     {courses.map(course => (
-                      <div key={course.id} className="bg-nutror-card p-4 rounded-xl border border-white/5 flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <img src={course.thumbnail || `https://picsum.photos/seed/${course.id}/100/100`} className="w-12 h-12 rounded-lg object-cover" referrerPolicy="no-referrer" />
-                          <div>
-                            <p className="font-bold">{course.title}</p>
-                            <p className="text-xs text-nutror-muted">ID: {course.id}</p>
+                      <div key={course.id} className="bg-nutror-card p-6 rounded-2xl border border-white/5 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <img src={course.thumbnail || `https://picsum.photos/seed/${course.id}/100/100`} className="w-12 h-12 rounded-lg object-cover" referrerPolicy="no-referrer" />
+                            <div>
+                              <p className="font-bold">{course.title}</p>
+                              <p className="text-xs text-nutror-muted">ID: {course.id}</p>
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <button 
+                              onClick={() => {
+                                setActiveCourseId(course.id);
+                                setModalType('module');
+                                setModalData({ title: '' });
+                              }}
+                              className="p-2 hover:bg-white/5 rounded-lg text-nutror-accent" title="Adicionar Módulo"
+                            >
+                              <Plus className="w-5 h-5" />
+                            </button>
+                            <button onClick={() => handleDeleteCourse(course.id)} className="p-2 hover:bg-red-500/10 rounded-lg text-red-500">
+                              <Trash2 className="w-5 h-5" />
+                            </button>
                           </div>
                         </div>
-                        <div className="flex gap-2">
-                          <button 
-                            onClick={() => {
-                              const title = prompt('Nome do módulo:');
-                              if (title) {
-                                fetch('/api/modules', {
-                                  method: 'POST',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ course_id: course.id, title, order_index: 0 })
-                                }).then(() => alert('Módulo adicionado!'));
-                              }
-                            }}
-                            className="p-2 hover:bg-white/5 rounded-lg text-nutror-accent" title="Adicionar Módulo"
-                          >
-                            <LayoutGrid className="w-5 h-5" />
-                          </button>
-                          <button 
-                            onClick={() => {
-                              const moduleId = prompt('ID do módulo:');
-                              const title = prompt('Título da aula:');
-                              const url = prompt('URL do YouTube:');
-                              if (moduleId && title && url) {
-                                fetch('/api/lessons', {
-                                  method: 'POST',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ module_id: parseInt(moduleId), title, youtube_url: url, order_index: 0 })
-                                }).then(() => alert('Aula adicionada!'));
-                              }
-                            }}
-                            className="p-2 hover:bg-white/5 rounded-lg text-nutror-accent" title="Adicionar Aula"
-                          >
-                            <Plus className="w-5 h-5" />
-                          </button>
-                          <button onClick={() => handleDeleteCourse(course.id)} className="p-2 hover:bg-red-500/10 rounded-lg text-red-500">
-                            <Trash2 className="w-5 h-5" />
-                          </button>
+
+                        {/* Modules List in Admin */}
+                        <div className="space-y-2 pl-4 border-l border-white/5">
+                          {course.modules?.map(module => (
+                            <div key={module.id} className="bg-white/5 rounded-lg p-3 space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm font-bold flex items-center gap-2">
+                                  <ChevronRight className="w-3 h-3 text-nutror-accent" /> {module.title}
+                                </span>
+                                <button 
+                                  onClick={() => {
+                                    setActiveModuleId(module.id);
+                                    setModalType('lesson');
+                                    setModalData({ title: '', youtube_url: '' });
+                                  }}
+                                  className="text-[10px] font-bold text-nutror-accent hover:underline"
+                                >
+                                  + Aula
+                                </button>
+                              </div>
+                              <div className="space-y-1 pl-4">
+                                {module.lessons?.map(lesson => (
+                                  <div key={lesson.id} className="text-xs text-nutror-muted flex items-center justify-between group">
+                                    <span>• {lesson.title}</span>
+                                    <button 
+                                      onClick={async () => {
+                                        if (confirm('Deseja excluir esta aula?')) {
+                                          await fetch(`/api/lessons/${lesson.id}`, { method: 'DELETE' });
+                                          if (currentUser) fetchCourses(currentUser);
+                                        }
+                                      }}
+                                      className="opacity-0 group-hover:opacity-100 text-red-500/50 hover:text-red-500"
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     ))}
@@ -766,6 +859,16 @@ export default function App() {
                           value={newUser.email}
                           onChange={e => setNewUser({...newUser, email: e.target.value})}
                           className="w-full bg-nutror-bg border border-white/10 rounded-lg p-2 text-sm focus:outline-none focus:border-nutror-accent"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-nutror-muted uppercase mb-1">Senha</label>
+                        <input 
+                          type="password" 
+                          value={newUser.password}
+                          onChange={e => setNewUser({...newUser, password: e.target.value})}
+                          className="w-full bg-nutror-bg border border-white/10 rounded-lg p-2 text-sm focus:outline-none focus:border-nutror-accent"
+                          placeholder="Defina uma senha"
                         />
                       </div>
                       <button 
@@ -823,12 +926,25 @@ export default function App() {
                               return (
                                 <div key={course.id} className="flex items-center justify-between p-2 rounded bg-white/5">
                                   <span className="text-xs truncate max-w-[150px]">{course.title}</span>
-                                  <button 
-                                    onClick={() => hasAccess ? handleRevokeAccess(selectedUser.id, course.id) : handleGrantAccess(selectedUser.id, course.id)}
-                                    className={`text-[10px] font-bold px-2 py-1 rounded ${hasAccess ? 'bg-red-500/20 text-red-500' : 'bg-nutror-accent/20 text-nutror-accent'}`}
-                                  >
-                                    {hasAccess ? 'Revogar' : 'Permitir'}
-                                  </button>
+                                  <div className="flex gap-1">
+                                    <button 
+                                      onClick={() => {
+                                        fetchCourseDetails(course.id).then((details) => {
+                                          setSelectedCourse(details);
+                                          setModalType('permissions');
+                                        });
+                                      }}
+                                      className="text-[10px] font-bold px-2 py-1 rounded bg-white/10 text-white hover:bg-white/20"
+                                    >
+                                      Aulas
+                                    </button>
+                                    <button 
+                                      onClick={() => hasAccess ? handleRevokeAccess(selectedUser.id, course.id) : handleGrantAccess(selectedUser.id, course.id)}
+                                      className={`text-[10px] font-bold px-2 py-1 rounded ${hasAccess ? 'bg-red-500/20 text-red-500' : 'bg-nutror-accent/20 text-nutror-accent'}`}
+                                    >
+                                      {hasAccess ? 'Revogar' : 'Permitir'}
+                                    </button>
+                                  </div>
                                 </div>
                               );
                             })}
@@ -847,6 +963,121 @@ export default function App() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Modals */}
+        <Modal 
+          isOpen={modalType === 'module'} 
+          onClose={() => setModalType(null)} 
+          title="Novo Módulo"
+        >
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-nutror-muted uppercase mb-1">Título do Módulo</label>
+              <input 
+                type="text" 
+                value={modalData.title}
+                onChange={e => setModalData({...modalData, title: e.target.value})}
+                className="w-full bg-nutror-bg border border-white/10 rounded-lg p-3 text-sm focus:outline-none focus:border-nutror-accent"
+                placeholder="Ex: Introdução ao Curso"
+              />
+            </div>
+            <button 
+              onClick={async () => {
+                if (!modalData.title || !activeCourseId) return;
+                await fetch('/api/modules', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ course_id: activeCourseId, title: modalData.title, order_index: 0 })
+                });
+                setModalType(null);
+                if (currentUser) fetchCourses(currentUser);
+              }}
+              className="w-full bg-nutror-accent text-black font-bold py-3 rounded-lg hover:brightness-110 transition-all"
+            >
+              Adicionar Módulo
+            </button>
+          </div>
+        </Modal>
+
+        <Modal 
+          isOpen={modalType === 'lesson'} 
+          onClose={() => setModalType(null)} 
+          title="Nova Aula"
+        >
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-nutror-muted uppercase mb-1">Título da Aula</label>
+              <input 
+                type="text" 
+                value={modalData.title}
+                onChange={e => setModalData({...modalData, title: e.target.value})}
+                className="w-full bg-nutror-bg border border-white/10 rounded-lg p-3 text-sm focus:outline-none focus:border-nutror-accent"
+                placeholder="Ex: Aula 01 - Primeiros Passos"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-nutror-muted uppercase mb-1">URL do YouTube</label>
+              <input 
+                type="text" 
+                value={modalData.youtube_url}
+                onChange={e => setModalData({...modalData, youtube_url: e.target.value})}
+                className="w-full bg-nutror-bg border border-white/10 rounded-lg p-3 text-sm focus:outline-none focus:border-nutror-accent"
+                placeholder="https://www.youtube.com/watch?v=..."
+              />
+            </div>
+            <button 
+              onClick={async () => {
+                if (!modalData.title || !modalData.youtube_url || !activeModuleId) return;
+                await fetch('/api/lessons', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ module_id: activeModuleId, title: modalData.title, youtube_url: modalData.youtube_url, order_index: 0 })
+                });
+                setModalType(null);
+                if (currentUser) fetchCourses(currentUser);
+              }}
+              className="w-full bg-nutror-accent text-black font-bold py-3 rounded-lg hover:brightness-110 transition-all"
+            >
+              Adicionar Aula
+            </button>
+          </div>
+        </Modal>
+
+        <Modal 
+          isOpen={modalType === 'permissions' && !!selectedCourse && !!selectedUser} 
+          onClose={() => setModalType(null)} 
+          title={`Aulas: ${selectedCourse?.title}`}
+        >
+          <div className="space-y-6">
+            <p className="text-xs text-nutror-muted">Selecione quais aulas o aluno <strong>{selectedUser?.name}</strong> terá acesso.</p>
+            <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-2">
+              {selectedCourse?.modules?.map(module => (
+                <div key={module.id} className="space-y-2">
+                  <h4 className="text-sm font-bold text-nutror-accent">{module.title}</h4>
+                  <div className="space-y-1">
+                    {module.lessons.map(lesson => (
+                      <label key={lesson.id} className="flex items-center gap-3 p-2 rounded bg-white/5 hover:bg-white/10 cursor-pointer transition-colors">
+                        <input 
+                          type="checkbox" 
+                          checked={userLessonIds.includes(lesson.id)}
+                          onChange={() => toggleLessonPermission(lesson.id)}
+                          className="w-4 h-4 accent-nutror-accent"
+                        />
+                        <span className="text-sm text-nutror-muted">{lesson.title}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button 
+              onClick={handleSavePermissions}
+              className="w-full bg-nutror-accent text-black font-bold py-3 rounded-lg hover:brightness-110 transition-all"
+            >
+              Salvar Permissões
+            </button>
+          </div>
+        </Modal>
       </main>
 
       <footer className="py-8 px-6 border-t border-white/5 text-center text-nutror-muted text-xs">
