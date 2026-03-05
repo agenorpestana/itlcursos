@@ -134,8 +134,8 @@ const CourseCard = ({ course, onClick }: { course: Course, onClick: (c: Course) 
     <div className="p-4">
       <h3 className="font-bold text-lg leading-tight mb-1 group-hover:text-nutror-accent transition-colors">{course.title}</h3>
       <div className="flex items-center gap-2 text-xs text-nutror-muted">
-        <span className="flex items-center gap-1"><LayoutGrid className="w-3 h-3" /> 3 Módulos</span>
-        <span className="flex items-center gap-1"><BookOpen className="w-3 h-3" /> 26 Aulas</span>
+        <span className="flex items-center gap-1"><LayoutGrid className="w-3 h-3" /> {course.module_count || 0} Módulos</span>
+        <span className="flex items-center gap-1"><BookOpen className="w-3 h-3" /> {course.lesson_count || 0} Aulas</span>
       </div>
       <div className="mt-4 flex items-center gap-2">
         <div className="w-6 h-6 rounded bg-nutror-accent/20 flex items-center justify-center">
@@ -620,6 +620,15 @@ export default function App() {
                   />
                 </div>
 
+                {selectedLesson.description && (
+                  <div className="p-6 bg-nutror-bg/30 border-t border-white/5 overflow-y-auto max-h-[200px]">
+                    <h3 className="text-sm font-bold text-nutror-accent uppercase tracking-wider mb-2">Sobre esta aula</h3>
+                    <p className="text-sm text-nutror-muted leading-relaxed whitespace-pre-wrap">
+                      {selectedLesson.description}
+                    </p>
+                  </div>
+                )}
+
                 <div className="p-6 bg-nutror-bg border-t border-white/5 flex items-center justify-between">
                   <button className="flex items-center gap-2 text-sm text-nutror-muted hover:text-white">
                     <ChevronRight className="w-4 h-4 rotate-180" /> AULA ANTERIOR
@@ -1016,6 +1025,15 @@ export default function App() {
               />
             </div>
             <div>
+              <label className="block text-xs font-bold text-nutror-muted uppercase mb-1">Descrição da Aula</label>
+              <textarea 
+                value={modalData.description}
+                onChange={e => setModalData({...modalData, description: e.target.value})}
+                className="w-full bg-nutror-bg border border-white/10 rounded-lg p-3 text-sm focus:outline-none focus:border-nutror-accent h-24"
+                placeholder="Descreva o que será ensinado nesta aula..."
+              />
+            </div>
+            <div>
               <label className="block text-xs font-bold text-nutror-muted uppercase mb-1">URL do YouTube</label>
               <input 
                 type="text" 
@@ -1025,13 +1043,33 @@ export default function App() {
                 placeholder="https://www.youtube.com/watch?v=..."
               />
             </div>
+
+            {modalData.youtube_url && getYoutubeEmbedUrl(modalData.youtube_url) && (
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-nutror-muted uppercase mb-1">Prévia do Vídeo</label>
+                <div className="aspect-video rounded-xl overflow-hidden border border-white/10">
+                  <iframe 
+                    src={getYoutubeEmbedUrl(modalData.youtube_url)} 
+                    className="w-full h-full"
+                    allowFullScreen
+                  />
+                </div>
+              </div>
+            )}
+
             <button 
               onClick={async () => {
                 if (!modalData.title || !modalData.youtube_url || !activeModuleId) return;
                 await fetch('/api/lessons', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ module_id: activeModuleId, title: modalData.title, youtube_url: modalData.youtube_url, order_index: 0 })
+                  body: JSON.stringify({ 
+                    module_id: activeModuleId, 
+                    title: modalData.title, 
+                    description: modalData.description,
+                    youtube_url: modalData.youtube_url, 
+                    order_index: 0 
+                  })
                 });
                 setModalType(null);
                 if (currentUser) fetchCourses(currentUser);

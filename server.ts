@@ -73,6 +73,7 @@ async function initDb() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       module_id INTEGER NOT NULL,
       title TEXT NOT NULL,
+      description TEXT,
       youtube_url TEXT NOT NULL,
       order_index INTEGER DEFAULT 0,
       FOREIGN KEY (module_id) REFERENCES modules(id) ON DELETE CASCADE
@@ -185,7 +186,13 @@ async function startServer() {
 
   // API Routes - Courses
   app.get("/api/courses", async (req, res) => {
-    const rows = await query("SELECT * FROM courses ORDER BY created_at DESC");
+    const rows = await query(`
+      SELECT c.*, 
+        (SELECT COUNT(*) FROM modules m WHERE m.course_id = c.id) as module_count,
+        (SELECT COUNT(*) FROM lessons l JOIN modules m ON l.module_id = m.id WHERE m.course_id = c.id) as lesson_count
+      FROM courses c 
+      ORDER BY created_at DESC
+    `);
     res.json(rows);
   });
 
@@ -237,8 +244,8 @@ async function startServer() {
   });
 
   app.post("/api/lessons", async (req, res) => {
-    const { module_id, title, youtube_url, order_index } = req.body;
-    const result: any = await query("INSERT INTO lessons (module_id, title, youtube_url, order_index) VALUES (?, ?, ?)", [module_id, title, youtube_url, order_index]);
+    const { module_id, title, description, youtube_url, order_index } = req.body;
+    const result: any = await query("INSERT INTO lessons (module_id, title, description, youtube_url, order_index) VALUES (?, ?, ?, ?, ?)", [module_id, title, description, youtube_url, order_index]);
     res.json({ id: result.insertId });
   });
 

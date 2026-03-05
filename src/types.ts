@@ -2,6 +2,7 @@ export interface Lesson {
   id: number;
   module_id: number;
   title: string;
+  description?: string;
   youtube_url: string;
   order_index: number;
 }
@@ -20,6 +21,8 @@ export interface Course {
   description: string;
   thumbnail: string;
   created_at: string;
+  module_count?: number;
+  lesson_count?: number;
   modules?: Module[];
 }
 
