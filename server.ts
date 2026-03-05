@@ -252,7 +252,12 @@ async function startServer() {
   }
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log(`-----------------------------------------`);
+    console.log(`ITL CURSOS INICIADO COM SUCESSO`);
+    console.log(`Porta: ${PORT}`);
+    console.log(`Modo: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`Banco: ${useMysql ? 'MySQL' : 'SQLite'}`);
+    console.log(`-----------------------------------------`);
   });
 }
 
