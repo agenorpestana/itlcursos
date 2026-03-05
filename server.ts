@@ -124,6 +124,13 @@ async function initDb() {
     }
   }
 
+  // Migration: Ensure lessons table has description column (for existing databases)
+  try {
+    await query("ALTER TABLE lessons ADD COLUMN description TEXT");
+  } catch (err) {
+    // Column likely already exists or other error we can ignore for now
+  }
+
   // Create default admin if not exists
   const admins: any = await query("SELECT * FROM users WHERE role = 'admin'");
   if (admins.length === 0) {

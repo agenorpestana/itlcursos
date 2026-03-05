@@ -1061,14 +1061,30 @@ export default function App() {
             </div>
             <button 
               onClick={async () => {
-                if (!modalData.title || !activeCourseId) return;
-                await fetch(`/api/courses/${activeCourseId}`, {
-                  method: 'PUT',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify(modalData)
-                });
-                setModalType(null);
-                if (currentUser) fetchCourses(currentUser);
+                if (!modalData.title) {
+                  alert('O título do curso é obrigatório.');
+                  return;
+                }
+                if (!activeCourseId) {
+                  alert('Erro: ID do curso não encontrado.');
+                  return;
+                }
+                try {
+                  const res = await fetch(`/api/courses/${activeCourseId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(modalData)
+                  });
+                  if (res.ok) {
+                    setModalType(null);
+                    if (currentUser) fetchCourses(currentUser);
+                  } else {
+                    const err = await res.json();
+                    alert(`Erro ao salvar curso: ${err.error || 'Erro desconhecido'}`);
+                  }
+                } catch (err) {
+                  alert('Erro de conexão ao salvar curso.');
+                }
               }}
               className="w-full bg-nutror-accent text-black font-bold py-3 rounded-lg hover:brightness-110 transition-all"
             >
@@ -1095,14 +1111,30 @@ export default function App() {
             </div>
             <button 
               onClick={async () => {
-                if (!modalData.title || !activeCourseId) return;
-                await fetch('/api/modules', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ course_id: activeCourseId, title: modalData.title, order_index: 0 })
-                });
-                setModalType(null);
-                if (currentUser) fetchCourses(currentUser);
+                if (!modalData.title) {
+                  alert('O título do módulo é obrigatório.');
+                  return;
+                }
+                if (!activeCourseId) {
+                  alert('Erro: ID do curso não encontrado.');
+                  return;
+                }
+                try {
+                  const res = await fetch('/api/modules', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ course_id: activeCourseId, title: modalData.title, order_index: 0 })
+                  });
+                  if (res.ok) {
+                    setModalType(null);
+                    if (currentUser) fetchCourses(currentUser);
+                  } else {
+                    const err = await res.json();
+                    alert(`Erro ao adicionar módulo: ${err.error || 'Erro desconhecido'}`);
+                  }
+                } catch (err) {
+                  alert('Erro de conexão ao adicionar módulo.');
+                }
               }}
               className="w-full bg-nutror-accent text-black font-bold py-3 rounded-lg hover:brightness-110 transition-all"
             >
@@ -1128,14 +1160,30 @@ export default function App() {
             </div>
             <button 
               onClick={async () => {
-                if (!modalData.title || !activeModuleId) return;
-                await fetch(`/api/modules/${activeModuleId}`, {
-                  method: 'PUT',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ title: modalData.title, order_index: 0 })
-                });
-                setModalType(null);
-                if (currentUser) fetchCourses(currentUser);
+                if (!modalData.title) {
+                  alert('O título do módulo é obrigatório.');
+                  return;
+                }
+                if (!activeModuleId) {
+                  alert('Erro: ID do módulo não encontrado.');
+                  return;
+                }
+                try {
+                  const res = await fetch(`/api/modules/${activeModuleId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title: modalData.title, order_index: 0 })
+                  });
+                  if (res.ok) {
+                    setModalType(null);
+                    if (currentUser) fetchCourses(currentUser);
+                  } else {
+                    const err = await res.json();
+                    alert(`Erro ao salvar módulo: ${err.error || 'Erro desconhecido'}`);
+                  }
+                } catch (err) {
+                  alert('Erro de conexão ao salvar módulo.');
+                }
               }}
               className="w-full bg-nutror-accent text-black font-bold py-3 rounded-lg hover:brightness-110 transition-all"
             >
@@ -1195,20 +1243,36 @@ export default function App() {
 
             <button 
               onClick={async () => {
-                if (!modalData.title || !modalData.youtube_url || !activeModuleId) return;
-                await fetch('/api/lessons', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ 
-                    module_id: activeModuleId, 
-                    title: modalData.title, 
-                    description: modalData.description,
-                    youtube_url: modalData.youtube_url, 
-                    order_index: 0 
-                  })
-                });
-                setModalType(null);
-                if (currentUser) fetchCourses(currentUser);
+                if (!modalData.title || !modalData.youtube_url) {
+                  alert('Título e URL do YouTube são obrigatórios.');
+                  return;
+                }
+                if (!activeModuleId) {
+                  alert('Erro: ID do módulo não encontrado.');
+                  return;
+                }
+                try {
+                  const res = await fetch('/api/lessons', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                      module_id: activeModuleId, 
+                      title: modalData.title, 
+                      description: modalData.description,
+                      youtube_url: modalData.youtube_url, 
+                      order_index: 0 
+                    })
+                  });
+                  if (res.ok) {
+                    setModalType(null);
+                    if (currentUser) fetchCourses(currentUser);
+                  } else {
+                    const err = await res.json();
+                    alert(`Erro ao adicionar aula: ${err.error || 'Erro desconhecido'}`);
+                  }
+                } catch (err) {
+                  alert('Erro de conexão ao adicionar aula.');
+                }
               }}
               className="w-full bg-nutror-accent text-black font-bold py-3 rounded-lg hover:brightness-110 transition-all"
             >
@@ -1265,19 +1329,35 @@ export default function App() {
 
             <button 
               onClick={async () => {
-                if (!modalData.title || !modalData.youtube_url || !activeLessonId) return;
-                await fetch(`/api/lessons/${activeLessonId}`, {
-                  method: 'PUT',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ 
-                    title: modalData.title, 
-                    description: modalData.description,
-                    youtube_url: modalData.youtube_url, 
-                    order_index: 0 
-                  })
-                });
-                setModalType(null);
-                if (currentUser) fetchCourses(currentUser);
+                if (!modalData.title || !modalData.youtube_url) {
+                  alert('Título e URL do YouTube são obrigatórios.');
+                  return;
+                }
+                if (!activeLessonId) {
+                  alert('Erro: ID da aula não encontrado.');
+                  return;
+                }
+                try {
+                  const res = await fetch(`/api/lessons/${activeLessonId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                      title: modalData.title, 
+                      description: modalData.description,
+                      youtube_url: modalData.youtube_url, 
+                      order_index: 0 
+                    })
+                  });
+                  if (res.ok) {
+                    setModalType(null);
+                    if (currentUser) fetchCourses(currentUser);
+                  } else {
+                    const err = await res.json();
+                    alert(`Erro ao salvar aula: ${err.error || 'Erro desconhecido'}`);
+                  }
+                } catch (err) {
+                  alert('Erro de conexão ao salvar aula.');
+                }
               }}
               className="w-full bg-nutror-accent text-black font-bold py-3 rounded-lg hover:brightness-110 transition-all"
             >
