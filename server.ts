@@ -231,16 +231,46 @@ async function startServer() {
     res.json({ id: result.insertId });
   });
 
+  app.put("/api/courses/:id", async (req, res) => {
+    const { title, description, thumbnail } = req.body;
+    await query("UPDATE courses SET title = ?, description = ?, thumbnail = ? WHERE id = ?", [title, description, thumbnail, req.params.id]);
+    res.json({ success: true });
+  });
+
   app.delete("/api/courses/:id", async (req, res) => {
     await query("DELETE FROM courses WHERE id = ?", [req.params.id]);
     res.json({ success: true });
   });
 
   // API Routes - Modules & Lessons
+  app.get("/api/admin/courses", async (req, res) => {
+    const courses: any = await query("SELECT * FROM courses ORDER BY created_at DESC");
+    const fullCourses = await Promise.all(courses.map(async (course: any) => {
+      const modules: any = await query("SELECT * FROM modules WHERE course_id = ? ORDER BY order_index ASC", [course.id]);
+      const modulesWithLessons = await Promise.all(modules.map(async (mod: any) => {
+        const lessons = await query("SELECT * FROM lessons WHERE module_id = ? ORDER BY order_index ASC", [mod.id]);
+        return { ...mod, lessons };
+      }));
+      return { ...course, modules: modulesWithLessons };
+    }));
+    res.json(fullCourses);
+  });
+
   app.post("/api/modules", async (req, res) => {
     const { course_id, title, order_index } = req.body;
     const result: any = await query("INSERT INTO modules (course_id, title, order_index) VALUES (?, ?, ?)", [course_id, title, order_index]);
     res.json({ id: result.insertId });
+  });
+
+  app.put("/api/modules/:id", async (req, res) => {
+    const { title, order_index } = req.body;
+    await query("UPDATE modules SET title = ?, order_index = ? WHERE id = ?", [title, order_index, req.params.id]);
+    res.json({ success: true });
+  });
+
+  app.delete("/api/modules/:id", async (req, res) => {
+    await query("DELETE FROM modules WHERE id = ?", [req.params.id]);
+    res.json({ success: true });
   });
 
   app.post("/api/lessons", async (req, res) => {
@@ -249,8 +279,9 @@ async function startServer() {
     res.json({ id: result.insertId });
   });
 
-  app.delete("/api/lessons/:id", async (req, res) => {
-    await query("DELETE FROM lessons WHERE id = ?", [req.params.id]);
+  app.put("/api/lessons/:id", async (req, res) => {
+    const { title, description, youtube_url, order_index } = req.body;
+    await query("UPDATE lessons SET title = ?, description = ?, youtube_url = ?, order_index = ? WHERE id = ?", [title, description, youtube_url, order_index, req.params.id]);
     res.json({ success: true });
   });
 

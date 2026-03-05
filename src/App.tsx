@@ -15,6 +15,7 @@ import {
   Settings,
   Plus,
   Trash2,
+  Edit2,
   ExternalLink,
   Menu,
   X
@@ -171,9 +172,10 @@ export default function App() {
   const [userLessonIds, setUserLessonIds] = useState<number[]>([]);
 
   // Modal states
-  const [modalType, setModalType] = useState<'module' | 'lesson' | 'permissions' | null>(null);
+  const [modalType, setModalType] = useState<'module' | 'lesson' | 'permissions' | 'edit-course' | 'edit-module' | 'edit-lesson' | null>(null);
   const [activeCourseId, setActiveCourseId] = useState<number | null>(null);
   const [activeModuleId, setActiveModuleId] = useState<number | null>(null);
+  const [activeLessonId, setActiveLessonId] = useState<number | null>(null);
   const [modalData, setModalData] = useState<any>({});
 
   useEffect(() => {
@@ -229,7 +231,7 @@ export default function App() {
   const fetchCourses = async (user: User) => {
     setLoading(true);
     try {
-      const url = user.role === 'admin' ? '/api/courses' : `/api/users/${user.id}/courses`;
+      const url = user.role === 'admin' ? '/api/admin/courses' : `/api/users/${user.id}/courses`;
       const res = await fetch(url);
       const data = await res.json();
       setCourses(data);
@@ -787,6 +789,16 @@ export default function App() {
                             <button 
                               onClick={() => {
                                 setActiveCourseId(course.id);
+                                setModalType('edit-course');
+                                setModalData({ title: course.title, description: course.description, thumbnail: course.thumbnail });
+                              }}
+                              className="p-2 hover:bg-white/5 rounded-lg text-nutror-muted hover:text-white" title="Editar Curso"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button 
+                              onClick={() => {
+                                setActiveCourseId(course.id);
                                 setModalType('module');
                                 setModalData({ title: '' });
                               }}
@@ -801,44 +813,85 @@ export default function App() {
                         </div>
 
                         {/* Modules List in Admin */}
-                        <div className="space-y-2 pl-4 border-l border-white/5">
+                        <div className="space-y-3 pl-4 border-l border-white/5">
                           {course.modules?.map(module => (
-                            <div key={module.id} className="bg-white/5 rounded-lg p-3 space-y-2">
+                            <div key={module.id} className="bg-white/5 rounded-lg p-4 space-y-3">
                               <div className="flex items-center justify-between">
                                 <span className="text-sm font-bold flex items-center gap-2">
                                   <ChevronRight className="w-3 h-3 text-nutror-accent" /> {module.title}
                                 </span>
-                                <button 
-                                  onClick={() => {
-                                    setActiveModuleId(module.id);
-                                    setModalType('lesson');
-                                    setModalData({ title: '', youtube_url: '' });
-                                  }}
-                                  className="text-[10px] font-bold text-nutror-accent hover:underline"
-                                >
-                                  + Aula
-                                </button>
+                                <div className="flex gap-2">
+                                  <button 
+                                    onClick={() => {
+                                      setActiveModuleId(module.id);
+                                      setModalType('edit-module');
+                                      setModalData({ title: module.title });
+                                    }}
+                                    className="p-1.5 hover:bg-white/5 rounded text-nutror-muted hover:text-white" title="Editar Módulo"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button 
+                                    onClick={() => {
+                                      setActiveModuleId(module.id);
+                                      setModalType('lesson');
+                                      setModalData({ title: '', description: '', youtube_url: '' });
+                                    }}
+                                    className="p-1.5 hover:bg-white/5 rounded text-nutror-accent" title="Adicionar Aula"
+                                  >
+                                    <Plus className="w-4 h-4" />
+                                  </button>
+                                  <button 
+                                    onClick={async () => {
+                                      if (confirm('Deseja excluir este módulo e todas as suas aulas?')) {
+                                        await fetch(`/api/modules/${module.id}`, { method: 'DELETE' });
+                                        if (currentUser) fetchCourses(currentUser);
+                                      }
+                                    }}
+                                    className="p-1.5 hover:bg-red-500/10 rounded text-red-500/70 hover:text-red-500" title="Excluir Módulo"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
                               </div>
                               <div className="space-y-1 pl-4">
                                 {module.lessons?.map(lesson => (
-                                  <div key={lesson.id} className="text-xs text-nutror-muted flex items-center justify-between group">
+                                  <div key={lesson.id} className="text-xs text-nutror-muted flex items-center justify-between group py-1 border-b border-white/5 last:border-0">
                                     <span>• {lesson.title}</span>
-                                    <button 
-                                      onClick={async () => {
-                                        if (confirm('Deseja excluir esta aula?')) {
-                                          await fetch(`/api/lessons/${lesson.id}`, { method: 'DELETE' });
-                                          if (currentUser) fetchCourses(currentUser);
-                                        }
-                                      }}
-                                      className="opacity-0 group-hover:opacity-100 text-red-500/50 hover:text-red-500"
-                                    >
-                                      <Trash2 className="w-3 h-3" />
-                                    </button>
+                                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <button 
+                                        onClick={() => {
+                                          setActiveLessonId(lesson.id);
+                                          setModalType('edit-lesson');
+                                          setModalData({ title: lesson.title, description: lesson.description || '', youtube_url: lesson.youtube_url });
+                                        }}
+                                        className="text-nutror-muted hover:text-white"
+                                      >
+                                        <Edit2 className="w-3 h-3" />
+                                      </button>
+                                      <button 
+                                        onClick={async () => {
+                                          if (confirm('Deseja excluir esta aula?')) {
+                                            await fetch(`/api/lessons/${lesson.id}`, { method: 'DELETE' });
+                                            if (currentUser) fetchCourses(currentUser);
+                                          }
+                                        }}
+                                        className="text-red-500/50 hover:text-red-500"
+                                      >
+                                        <Trash2 className="w-3 h-3" />
+                                      </button>
+                                    </div>
                                   </div>
                                 ))}
+                                {(!module.lessons || module.lessons.length === 0) && (
+                                  <p className="text-[10px] text-nutror-muted italic">Nenhuma aula cadastrada</p>
+                                )}
                               </div>
                             </div>
                           ))}
+                          {(!course.modules || course.modules.length === 0) && (
+                            <p className="text-xs text-nutror-muted italic">Nenhum módulo cadastrado</p>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -975,6 +1028,56 @@ export default function App() {
 
         {/* Modals */}
         <Modal 
+          isOpen={modalType === 'edit-course'} 
+          onClose={() => setModalType(null)} 
+          title="Editar Curso"
+        >
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-nutror-muted uppercase mb-1">Título</label>
+              <input 
+                type="text" 
+                value={modalData.title}
+                onChange={e => setModalData({...modalData, title: e.target.value})}
+                className="w-full bg-nutror-bg border border-white/10 rounded-lg p-3 text-sm focus:outline-none focus:border-nutror-accent"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-nutror-muted uppercase mb-1">Descrição</label>
+              <textarea 
+                value={modalData.description}
+                onChange={e => setModalData({...modalData, description: e.target.value})}
+                className="w-full bg-nutror-bg border border-white/10 rounded-lg p-3 text-sm focus:outline-none focus:border-nutror-accent h-24"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-nutror-muted uppercase mb-1">URL da Thumbnail</label>
+              <input 
+                type="text" 
+                value={modalData.thumbnail}
+                onChange={e => setModalData({...modalData, thumbnail: e.target.value})}
+                className="w-full bg-nutror-bg border border-white/10 rounded-lg p-3 text-sm focus:outline-none focus:border-nutror-accent"
+              />
+            </div>
+            <button 
+              onClick={async () => {
+                if (!modalData.title || !activeCourseId) return;
+                await fetch(`/api/courses/${activeCourseId}`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(modalData)
+                });
+                setModalType(null);
+                if (currentUser) fetchCourses(currentUser);
+              }}
+              className="w-full bg-nutror-accent text-black font-bold py-3 rounded-lg hover:brightness-110 transition-all"
+            >
+              Salvar Alterações
+            </button>
+          </div>
+        </Modal>
+
+        <Modal 
           isOpen={modalType === 'module'} 
           onClose={() => setModalType(null)} 
           title="Novo Módulo"
@@ -1004,6 +1107,39 @@ export default function App() {
               className="w-full bg-nutror-accent text-black font-bold py-3 rounded-lg hover:brightness-110 transition-all"
             >
               Adicionar Módulo
+            </button>
+          </div>
+        </Modal>
+
+        <Modal 
+          isOpen={modalType === 'edit-module'} 
+          onClose={() => setModalType(null)} 
+          title="Editar Módulo"
+        >
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-nutror-muted uppercase mb-1">Título do Módulo</label>
+              <input 
+                type="text" 
+                value={modalData.title}
+                onChange={e => setModalData({...modalData, title: e.target.value})}
+                className="w-full bg-nutror-bg border border-white/10 rounded-lg p-3 text-sm focus:outline-none focus:border-nutror-accent"
+              />
+            </div>
+            <button 
+              onClick={async () => {
+                if (!modalData.title || !activeModuleId) return;
+                await fetch(`/api/modules/${activeModuleId}`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ title: modalData.title, order_index: 0 })
+                });
+                setModalType(null);
+                if (currentUser) fetchCourses(currentUser);
+              }}
+              className="w-full bg-nutror-accent text-black font-bold py-3 rounded-lg hover:brightness-110 transition-all"
+            >
+              Salvar Alterações
             </button>
           </div>
         </Modal>
@@ -1077,6 +1213,75 @@ export default function App() {
               className="w-full bg-nutror-accent text-black font-bold py-3 rounded-lg hover:brightness-110 transition-all"
             >
               Adicionar Aula
+            </button>
+          </div>
+        </Modal>
+
+        <Modal 
+          isOpen={modalType === 'edit-lesson'} 
+          onClose={() => setModalType(null)} 
+          title="Editar Aula"
+        >
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-nutror-muted uppercase mb-1">Título da Aula</label>
+              <input 
+                type="text" 
+                value={modalData.title}
+                onChange={e => setModalData({...modalData, title: e.target.value})}
+                className="w-full bg-nutror-bg border border-white/10 rounded-lg p-3 text-sm focus:outline-none focus:border-nutror-accent"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-nutror-muted uppercase mb-1">Descrição da Aula</label>
+              <textarea 
+                value={modalData.description}
+                onChange={e => setModalData({...modalData, description: e.target.value})}
+                className="w-full bg-nutror-bg border border-white/10 rounded-lg p-3 text-sm focus:outline-none focus:border-nutror-accent h-24"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-nutror-muted uppercase mb-1">URL do YouTube</label>
+              <input 
+                type="text" 
+                value={modalData.youtube_url}
+                onChange={e => setModalData({...modalData, youtube_url: e.target.value})}
+                className="w-full bg-nutror-bg border border-white/10 rounded-lg p-3 text-sm focus:outline-none focus:border-nutror-accent"
+              />
+            </div>
+
+            {modalData.youtube_url && getYoutubeEmbedUrl(modalData.youtube_url) && (
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-nutror-muted uppercase mb-1">Prévia do Vídeo</label>
+                <div className="aspect-video rounded-xl overflow-hidden border border-white/10">
+                  <iframe 
+                    src={getYoutubeEmbedUrl(modalData.youtube_url)} 
+                    className="w-full h-full"
+                    allowFullScreen
+                  />
+                </div>
+              </div>
+            )}
+
+            <button 
+              onClick={async () => {
+                if (!modalData.title || !modalData.youtube_url || !activeLessonId) return;
+                await fetch(`/api/lessons/${activeLessonId}`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ 
+                    title: modalData.title, 
+                    description: modalData.description,
+                    youtube_url: modalData.youtube_url, 
+                    order_index: 0 
+                  })
+                });
+                setModalType(null);
+                if (currentUser) fetchCourses(currentUser);
+              }}
+              className="w-full bg-nutror-accent text-black font-bold py-3 rounded-lg hover:brightness-110 transition-all"
+            >
+              Salvar Alterações
             </button>
           </div>
         </Modal>
