@@ -132,6 +132,12 @@ async function initDb() {
       PRIMARY KEY (user_id, lesson_id),
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
       FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS settings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      app_name TEXT NOT NULL DEFAULT 'ITL Cursos',
+      logo_url TEXT,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`
   ];
 
@@ -161,6 +167,16 @@ async function initDb() {
   try {
     await query("ALTER TABLE lessons ADD COLUMN description TEXT");
   } catch (err) {}
+
+  // Seed settings if empty
+  try {
+    const settings: any = await query("SELECT COUNT(*) as count FROM settings");
+    if (settings[0].count === 0) {
+      await query("INSERT INTO settings (app_name) VALUES ('ITL Cursos')");
+    }
+  } catch (err) {
+    console.error('Error seeding settings:', err);
+  }
 
   // Migration: Ensure lessons table has duration column
   try {
@@ -593,6 +609,27 @@ async function startServer() {
     }));
     
     res.json(stats);
+  });
+
+  // API Routes - Settings
+  app.get("/api/settings", async (req, res) => {
+    const rows: any = await query("SELECT * FROM settings ORDER BY id DESC LIMIT 1");
+    res.json(rows[0] || { app_name: 'ITL Cursos', logo_url: '' });
+  });
+
+  app.post("/api/admin/settings", async (req, res) => {
+    const { app_name, logo_url } = req.body;
+    try {
+      const rows: any = await query("SELECT id FROM settings ORDER BY id DESC LIMIT 1");
+      if (rows.length > 0) {
+        await query("UPDATE settings SET app_name = ?, logo_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", [app_name, logo_url, rows[0].id]);
+      } else {
+        await query("INSERT INTO settings (app_name, logo_url) VALUES (?, ?)", [app_name, logo_url]);
+      }
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(400).json({ error: err.message });
+    }
   });
 
   // Vite middleware for development

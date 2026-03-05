@@ -57,12 +57,16 @@ const Modal = ({ isOpen, onClose, title, children }: { isOpen: boolean, onClose:
   </AnimatePresence>
 );
 
-const Header = ({ onAdminClick, user, onLogout, setView, currentView }: { onAdminClick: () => void, user: User | null, onLogout: () => void, setView: (v: any) => void, currentView: string }) => (
+const Header = ({ onAdminClick, user, onLogout, setView, currentView, settings }: { onAdminClick: () => void, user: User | null, onLogout: () => void, setView: (v: any) => void, currentView: string, settings: any }) => (
   <header className="sticky top-0 z-50 glass border-b border-white/5 px-6 py-3 flex items-center justify-between">
     <div className="flex items-center gap-8">
       <div className="flex items-center gap-2 cursor-pointer" onClick={() => setView('home')}>
-        <div className="w-8 h-8 bg-nutror-accent rounded-full flex items-center justify-center font-bold text-black italic">ITL</div>
-        <span className="text-xl font-bold tracking-tight">ITL Cursos</span>
+        {settings.logo_url ? (
+          <img src={settings.logo_url} alt="Logo" className="h-8 w-auto object-contain" referrerPolicy="no-referrer" />
+        ) : (
+          <div className="w-8 h-8 bg-nutror-accent rounded-full flex items-center justify-center font-bold text-black italic">ITL</div>
+        )}
+        <span className="text-xl font-bold tracking-tight">{settings.app_name}</span>
       </div>
       <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-nutror-muted">
         <button 
@@ -192,7 +196,7 @@ const CourseCard = ({ course, onClick }: { course: Course, onClick: (c: Course) 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [view, setView] = useState<'login' | 'home' | 'course' | 'lesson' | 'admin' | 'notes' | 'saved' | 'certificates'>('login');
-  const [adminTab, setAdminTab] = useState<'dashboard' | 'courses' | 'members' | 'users'>('dashboard');
+  const [adminTab, setAdminTab] = useState<'dashboard' | 'courses' | 'members' | 'users' | 'settings'>('dashboard');
   const [courses, setCourses] = useState<Course[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
@@ -209,6 +213,7 @@ export default function App() {
   const [dashboardStats, setDashboardStats] = useState<any[]>([]);
   const [savedLessons, setSavedLessons] = useState<Lesson[]>([]);
   const [adminUsers, setAdminUsers] = useState<User[]>([]);
+  const [settings, setSettings] = useState({ app_name: 'ITL Cursos', logo_url: '' });
 
   // Login form state
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
@@ -229,6 +234,7 @@ export default function App() {
 
   useEffect(() => {
     // Check if user is already logged in (simple session simulation)
+    fetchSettings();
     const savedUser = localStorage.getItem('itl_user');
     if (savedUser) {
       const user = JSON.parse(savedUser);
@@ -326,6 +332,19 @@ export default function App() {
       const res = await fetch('/api/admin/dashboard/stats');
       const data = await res.json();
       setDashboardStats(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchSettings = async () => {
+    try {
+      const res = await fetch('/api/settings');
+      const data = await res.json();
+      setSettings(data);
+      if (data.app_name) {
+        document.title = data.app_name;
+      }
     } catch (err) {
       console.error(err);
     }
@@ -592,6 +611,7 @@ export default function App() {
           onLogout={handleLogout}
           setView={setView}
           currentView={view}
+          settings={settings}
         />
       )}
 
@@ -607,8 +627,12 @@ export default function App() {
             >
               <div className="w-full max-w-md bg-nutror-card p-8 rounded-3xl border border-white/5 shadow-2xl">
                 <div className="text-center mb-8">
-                  <div className="w-16 h-16 bg-nutror-accent rounded-full flex items-center justify-center font-bold text-black italic text-2xl mx-auto mb-4">ITL</div>
-                  <h1 className="text-2xl font-bold">ITL Cursos</h1>
+                  {settings.logo_url ? (
+                    <img src={settings.logo_url} alt="Logo" className="h-16 w-auto object-contain mx-auto mb-4" referrerPolicy="no-referrer" />
+                  ) : (
+                    <div className="w-16 h-16 bg-nutror-accent rounded-full flex items-center justify-center font-bold text-black italic text-2xl mx-auto mb-4">ITL</div>
+                  )}
+                  <h1 className="text-2xl font-bold">{settings.app_name}</h1>
                   <p className="text-nutror-muted text-sm mt-2">Acesse sua área de membros</p>
                 </div>
 
@@ -827,7 +851,7 @@ export default function App() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="flex h-[calc(100vh-64px)] overflow-hidden"
+              className="flex flex-col lg:flex-row h-[calc(100vh-64px)] overflow-hidden"
             >
               {/* Main Content */}
               <div className="flex-1 flex flex-col bg-black overflow-y-auto custom-scrollbar">
@@ -1016,7 +1040,7 @@ export default function App() {
               </div>
 
               {/* Sidebar */}
-              <div className="w-96 glass border-l border-white/5 flex flex-col">
+              <div className="w-full lg:w-96 glass border-t lg:border-t-0 lg:border-l border-white/5 flex flex-col h-[40vh] lg:h-full order-2 lg:order-none">
                 <div className="p-6 border-b border-white/5">
                   <h3 className="font-bold mb-2 truncate">{selectedCourse.title}</h3>
                   {(() => {
@@ -1390,6 +1414,12 @@ export default function App() {
                   className={`pb-4 px-4 text-sm font-bold transition-colors ${adminTab === 'users' ? 'text-nutror-accent border-b-2 border-nutror-accent' : 'text-nutror-muted hover:text-white'}`}
                 >
                   Usuários
+                </button>
+                <button 
+                  onClick={() => setAdminTab('settings')}
+                  className={`pb-4 px-4 text-sm font-bold transition-colors ${adminTab === 'settings' ? 'text-nutror-accent border-b-2 border-nutror-accent' : 'text-nutror-muted hover:text-white'}`}
+                >
+                  Configuração
                 </button>
               </div>
 
@@ -1857,6 +1887,71 @@ export default function App() {
                   </div>
                 </div>
               )}
+
+              {adminTab === 'settings' && (
+                <div className="max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  <div className="bg-nutror-card p-8 rounded-2xl border border-white/5">
+                    <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
+                      <Settings className="w-5 h-5 text-nutror-accent" /> Configuração do Sistema
+                    </h2>
+                    <div className="space-y-6">
+                      <div>
+                        <label className="block text-xs font-bold text-nutror-muted uppercase mb-1">Nome da Plataforma</label>
+                        <input 
+                          type="text" 
+                          value={settings.app_name}
+                          onChange={e => setSettings({...settings, app_name: e.target.value})}
+                          className="w-full bg-nutror-bg border border-white/10 rounded-lg p-3 text-sm focus:outline-none focus:border-nutror-accent"
+                          placeholder="Ex: ITL Cursos"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-nutror-muted uppercase mb-1">URL da Logo</label>
+                        <input 
+                          type="text" 
+                          value={settings.logo_url || ''}
+                          onChange={e => setSettings({...settings, logo_url: e.target.value})}
+                          className="w-full bg-nutror-bg border border-white/10 rounded-lg p-3 text-sm focus:outline-none focus:border-nutror-accent"
+                          placeholder="https://exemplo.com/logo.png"
+                        />
+                        <p className="text-[10px] text-nutror-muted mt-1">Recomendado: Logo com fundo transparente (PNG) e altura de 32px.</p>
+                      </div>
+                      
+                      {settings.logo_url && (
+                        <div className="p-4 bg-white/5 rounded-xl border border-white/5">
+                          <p className="text-[10px] font-bold text-nutror-muted uppercase mb-2">Pré-visualização da Logo</p>
+                          <div className="bg-nutror-bg p-4 rounded-lg flex items-center justify-center">
+                            <img src={settings.logo_url} alt="Preview" className="h-8 w-auto object-contain" referrerPolicy="no-referrer" />
+                          </div>
+                        </div>
+                      )}
+
+                      <button 
+                        onClick={async () => {
+                          try {
+                            const res = await fetch('/api/admin/settings', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify(settings)
+                            });
+                            if (res.ok) {
+                              alert('Configurações salvas com sucesso!');
+                              fetchSettings();
+                            } else {
+                              alert('Erro ao salvar configurações.');
+                            }
+                          } catch (err) {
+                            alert('Erro de conexão.');
+                          }
+                        }}
+                        className="w-full bg-nutror-accent text-black font-bold py-3 rounded-lg hover:brightness-110 transition-all"
+                      >
+                        Salvar Alterações
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -2262,10 +2357,14 @@ export default function App() {
 
       <footer className="py-8 px-6 border-t border-white/5 text-center text-nutror-muted text-xs">
         <div className="flex items-center justify-center gap-2 mb-4">
-          <div className="w-6 h-6 bg-nutror-accent rounded-full flex items-center justify-center font-bold text-black italic text-[10px]">ITL</div>
-          <span className="text-sm font-bold text-white">ITL Cursos</span>
+          {settings.logo_url ? (
+            <img src={settings.logo_url} alt="Logo" className="h-6 w-auto object-contain" referrerPolicy="no-referrer" />
+          ) : (
+            <div className="w-6 h-6 bg-nutror-accent rounded-full flex items-center justify-center font-bold text-black italic text-[10px]">ITL</div>
+          )}
+          <span className="text-sm font-bold text-white">{settings.app_name}</span>
           <span className="mx-2">|</span>
-          <span>A ÁREA DE MEMBROS DA ITL</span>
+          <span>A ÁREA DE MEMBROS DA {settings.app_name.toUpperCase()}</span>
         </div>
         <div className="flex justify-center gap-6">
           <a href="#" className="hover:text-white">Privacidade</a>
