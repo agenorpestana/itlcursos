@@ -229,7 +229,12 @@ async function startServer() {
       return { ...mod, lessons };
     }));
 
-    res.json({ ...course, modules: modulesWithLessons });
+    // Filter out modules with no lessons if userId is provided (student view)
+    const filteredModules = userId 
+      ? modulesWithLessons.filter(m => m.lessons && m.lessons.length > 0)
+      : modulesWithLessons;
+
+    res.json({ ...course, modules: filteredModules });
   });
 
   app.post("/api/courses", async (req, res) => {
@@ -251,7 +256,13 @@ async function startServer() {
 
   // API Routes - Modules & Lessons
   app.get("/api/admin/courses", async (req, res) => {
-    const courses: any = await query("SELECT * FROM courses ORDER BY created_at DESC");
+    const courses: any = await query(`
+      SELECT c.*, 
+        (SELECT COUNT(*) FROM modules m WHERE m.course_id = c.id) as module_count,
+        (SELECT COUNT(*) FROM lessons l JOIN modules m ON l.module_id = m.id WHERE m.course_id = c.id) as lesson_count
+      FROM courses c 
+      ORDER BY created_at DESC
+    `);
     const fullCourses = await Promise.all(courses.map(async (course: any) => {
       const modules: any = await query("SELECT * FROM modules WHERE course_id = ? ORDER BY order_index ASC", [course.id]);
       const modulesWithLessons = await Promise.all(modules.map(async (mod: any) => {
@@ -320,11 +331,26 @@ async function startServer() {
 
   // API Routes - User Course Permissions
   app.get("/api/users/:id/courses", async (req, res) => {
+    const userId = req.params.id;
     const rows = await query(`
-      SELECT c.* FROM courses c
+      SELECT c.*,
+        (SELECT COUNT(DISTINCT m.id) 
+         FROM modules m 
+         WHERE m.course_id = c.id 
+         AND EXISTS (
+           SELECT 1 FROM lessons l 
+           JOIN user_lessons ul ON l.id = ul.lesson_id 
+           WHERE l.module_id = m.id AND ul.user_id = ?
+         )) as module_count,
+        (SELECT COUNT(*) 
+         FROM lessons l 
+         JOIN modules m ON l.module_id = m.id 
+         JOIN user_lessons ul ON l.id = ul.lesson_id 
+         WHERE m.course_id = c.id AND ul.user_id = ?) as lesson_count
+      FROM courses c
       JOIN user_courses uc ON c.id = uc.course_id
       WHERE uc.user_id = ?
-    `, [req.params.id]);
+    `, [userId, userId, userId]);
     res.json(rows);
   });
 
