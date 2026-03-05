@@ -1,0 +1,5 @@
+{
+  "name": "ITL Cursos",
+  "description": "Plataforma de cursos online inspirada no Nutror, com área administrativa e integração com YouTube.",
+  "requestFramePermissions": []
+}
