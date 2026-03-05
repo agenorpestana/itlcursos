@@ -127,7 +127,17 @@ async function initDb() {
 }
 
 async function startServer() {
-  await initDb();
+  console.log(">>> Iniciando processo de boot do ITL Cursos...");
+  
+  try {
+    console.log(">>> Verificando conexão com o banco de dados...");
+    await initDb();
+    console.log(">>> Banco de dados OK.");
+  } catch (dbError) {
+    console.error("!!! ERRO AO INICIALIZAR BANCO DE DADOS:");
+    console.error(dbError);
+    process.exit(1); // Fecha o processo com erro para o PM2 saber que caiu
+  }
   
   const app = express();
   const PORT = Number(process.env.PORT) || 3000;
@@ -146,6 +156,7 @@ async function startServer() {
   // Health Check for Nginx debugging
   app.get("/api/ping", (req, res) => {
     res.json({ 
+      system: "ITL CURSOS",
       status: "online", 
       time: new Date().toISOString(),
       port: PORT,
