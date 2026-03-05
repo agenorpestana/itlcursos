@@ -23,6 +23,7 @@ export interface Course {
   created_at: string;
   module_count?: number;
   lesson_count?: number;
+  completed_count?: number;
   modules?: Module[];
 }
 

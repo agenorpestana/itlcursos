@@ -99,6 +99,31 @@ async function initDb() {
       PRIMARY KEY (user_id, lesson_id),
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
       FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS completed_lessons (
+      user_id INTEGER NOT NULL,
+      lesson_id INTEGER NOT NULL,
+      PRIMARY KEY (user_id, lesson_id),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS lesson_notes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      lesson_id INTEGER NOT NULL,
+      content TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS lesson_comments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      lesson_id INTEGER NOT NULL,
+      content TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE CASCADE
     )`
   ];
 
@@ -346,11 +371,16 @@ async function startServer() {
          FROM lessons l 
          JOIN modules m ON l.module_id = m.id 
          JOIN user_lessons ul ON l.id = ul.lesson_id 
-         WHERE m.course_id = c.id AND ul.user_id = ?) as lesson_count
+         WHERE m.course_id = c.id AND ul.user_id = ?) as lesson_count,
+        (SELECT COUNT(*)
+         FROM completed_lessons cl
+         JOIN lessons l ON cl.lesson_id = l.id
+         JOIN modules m ON l.module_id = m.id
+         WHERE m.course_id = c.id AND cl.user_id = ?) as completed_count
       FROM courses c
       JOIN user_courses uc ON c.id = uc.course_id
       WHERE uc.user_id = ?
-    `, [userId, userId, userId]);
+    `, [userId, userId, userId, userId]);
     res.json(rows);
   });
 
@@ -390,6 +420,82 @@ async function startServer() {
     } catch (err: any) {
       res.status(400).json({ error: err.message });
     }
+  });
+
+  // API Routes - Lesson Completion
+  app.get("/api/users/:userId/completed", async (req, res) => {
+    const rows = await query("SELECT lesson_id FROM completed_lessons WHERE user_id = ?", [req.params.userId]);
+    res.json(rows.map((r: any) => r.lesson_id));
+  });
+
+  app.post("/api/users/:userId/completed/:lessonId", async (req, res) => {
+    const { userId, lessonId } = req.params;
+    try {
+      if (useMysql) {
+        await query("INSERT IGNORE INTO completed_lessons (user_id, lesson_id) VALUES (?, ?)", [userId, lessonId]);
+      } else {
+        await query("INSERT OR IGNORE INTO completed_lessons (user_id, lesson_id) VALUES (?, ?)", [userId, lessonId]);
+      }
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.delete("/api/users/:userId/completed/:lessonId", async (req, res) => {
+    const { userId, lessonId } = req.params;
+    await query("DELETE FROM completed_lessons WHERE user_id = ? AND lesson_id = ?", [userId, lessonId]);
+    res.json({ success: true });
+  });
+
+  // API Routes - Lesson Notes
+  app.get("/api/users/:userId/notes", async (req, res) => {
+    const rows = await query(`
+      SELECT n.*, l.title as lesson_title, c.title as course_title 
+      FROM lesson_notes n
+      JOIN lessons l ON n.lesson_id = l.id
+      JOIN modules m ON l.module_id = m.id
+      JOIN courses c ON m.course_id = c.id
+      WHERE n.user_id = ?
+      ORDER BY n.created_at DESC
+    `, [req.params.userId]);
+    res.json(rows);
+  });
+
+  app.get("/api/users/:userId/lessons/:lessonId/notes", async (req, res) => {
+    const rows = await query("SELECT * FROM lesson_notes WHERE user_id = ? AND lesson_id = ?", [req.params.userId, req.params.lessonId]);
+    res.json(rows);
+  });
+
+  app.post("/api/users/:userId/lessons/:lessonId/notes", async (req, res) => {
+    const { content } = req.body;
+    const { userId, lessonId } = req.params;
+    const result: any = await query("INSERT INTO lesson_notes (user_id, lesson_id, content) VALUES (?, ?, ?)", [userId, lessonId, content]);
+    res.json({ id: result.insertId });
+  });
+
+  app.delete("/api/notes/:id", async (req, res) => {
+    await query("DELETE FROM lesson_notes WHERE id = ?", [req.params.id]);
+    res.json({ success: true });
+  });
+
+  // API Routes - Lesson Comments
+  app.get("/api/lessons/:lessonId/comments", async (req, res) => {
+    const rows = await query(`
+      SELECT c.*, u.name as user_name 
+      FROM lesson_comments c
+      JOIN users u ON c.user_id = u.id
+      WHERE c.lesson_id = ?
+      ORDER BY c.created_at DESC
+    `, [req.params.lessonId]);
+    res.json(rows);
+  });
+
+  app.post("/api/lessons/:lessonId/comments", async (req, res) => {
+    const { userId, content } = req.body;
+    const { lessonId } = req.params;
+    const result: any = await query("INSERT INTO lesson_comments (user_id, lesson_id, content) VALUES (?, ?, ?)", [userId, lessonId, content]);
+    res.json({ id: result.insertId });
   });
 
   // Vite middleware for development

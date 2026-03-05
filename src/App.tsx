@@ -57,19 +57,29 @@ const Modal = ({ isOpen, onClose, title, children }: { isOpen: boolean, onClose:
   </AnimatePresence>
 );
 
-const Header = ({ onAdminClick, user, onLogout }: { onAdminClick: () => void, user: User | null, onLogout: () => void }) => (
+const Header = ({ onAdminClick, user, onLogout, setView, currentView }: { onAdminClick: () => void, user: User | null, onLogout: () => void, setView: (v: any) => void, currentView: string }) => (
   <header className="sticky top-0 z-50 glass border-b border-white/5 px-6 py-3 flex items-center justify-between">
     <div className="flex items-center gap-8">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 cursor-pointer" onClick={() => setView('home')}>
         <div className="w-8 h-8 bg-nutror-accent rounded-full flex items-center justify-center font-bold text-black italic">ITL</div>
         <span className="text-xl font-bold tracking-tight">ITL Cursos</span>
       </div>
       <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-nutror-muted">
-        <a href="#" className="text-white border-b-2 border-nutror-accent pb-1">Meus Cursos</a>
+        <button 
+          onClick={() => setView('home')} 
+          className={`${currentView === 'home' ? 'text-white border-b-2 border-nutror-accent pb-1' : 'hover:text-white transition-colors'}`}
+        >
+          Meus Cursos
+        </button>
         <a href="#" className="hover:text-white transition-colors">Portais</a>
         <a href="#" className="hover:text-white transition-colors">Certificados</a>
         <a href="#" className="hover:text-white transition-colors">Aulas Salvas</a>
-        <a href="#" className="hover:text-white transition-colors">Minhas Anotações</a>
+        <button 
+          onClick={() => setView('notes')} 
+          className={`${currentView === 'notes' ? 'text-white border-b-2 border-nutror-accent pb-1' : 'hover:text-white transition-colors'}`}
+        >
+          Minhas Anotações
+        </button>
       </nav>
     </div>
     <div className="flex items-center gap-4">
@@ -113,46 +123,72 @@ const Header = ({ onAdminClick, user, onLogout }: { onAdminClick: () => void, us
   </header>
 );
 
-const CourseCard = ({ course, onClick }: { course: Course, onClick: (c: Course) => void | Promise<void>, key?: React.Key }) => (
-  <motion.div 
-    whileHover={{ y: -4 }}
-    onClick={() => onClick(course)}
-    className="bg-nutror-card rounded-xl overflow-hidden cursor-pointer group border border-white/5 hover:border-nutror-accent/30 transition-all"
-  >
-    <div className="aspect-video relative overflow-hidden">
-      <img 
-        src={course.thumbnail || `https://picsum.photos/seed/${course.id}/640/360`} 
-        alt={course.title} 
-        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-        referrerPolicy="no-referrer"
-      />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4">
-        <button className="bg-nutror-accent text-black px-4 py-2 rounded-lg font-bold flex items-center gap-2 text-sm">
-          <Play className="w-4 h-4 fill-current" /> Continuar
-        </button>
-      </div>
-    </div>
-    <div className="p-4">
-      <h3 className="font-bold text-lg leading-tight mb-1 group-hover:text-nutror-accent transition-colors">{course.title}</h3>
-      <div className="flex items-center gap-2 text-xs text-nutror-muted">
-        <span className="flex items-center gap-1"><LayoutGrid className="w-3 h-3" /> {course.module_count || 0} Módulos</span>
-        <span className="flex items-center gap-1"><BookOpen className="w-3 h-3" /> {course.lesson_count || 0} Aulas</span>
-      </div>
-      <div className="mt-4 flex items-center gap-2">
-        <div className="w-6 h-6 rounded bg-nutror-accent/20 flex items-center justify-center">
-          <div className="w-3 h-3 bg-nutror-accent rounded-full" />
+const CourseCard = ({ course, onClick }: { course: Course, onClick: (c: Course) => void | Promise<void>, key?: React.Key }) => {
+  const percent = course.lesson_count ? Math.round(((course.completed_count || 0) / course.lesson_count) * 100) : 0;
+  
+  return (
+    <motion.div 
+      whileHover={{ y: -4 }}
+      onClick={() => onClick(course)}
+      className="bg-nutror-card rounded-xl overflow-hidden cursor-pointer group border border-white/5 hover:border-nutror-accent/30 transition-all"
+    >
+      <div className="aspect-video relative overflow-hidden">
+        <img 
+          src={course.thumbnail || `https://picsum.photos/seed/${course.id}/640/360`} 
+          alt={course.title} 
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          referrerPolicy="no-referrer"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4">
+          <button className="bg-nutror-accent text-black px-4 py-2 rounded-lg font-bold flex items-center gap-2 text-sm">
+            <Play className="w-4 h-4 fill-current" /> Continuar
+          </button>
         </div>
-        <span className="text-[10px] font-bold uppercase tracking-wider text-nutror-muted">EAD ITL</span>
+        {percent > 0 && (
+          <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/20">
+            <motion.div 
+              initial={{ width: 0 }}
+              animate={{ width: `${percent}%` }}
+              className="h-full bg-nutror-accent" 
+            />
+          </div>
+        )}
       </div>
-    </div>
-  </motion.div>
-);
+      <div className="p-4">
+        <h3 className="font-bold text-lg leading-tight mb-1 group-hover:text-nutror-accent transition-colors">{course.title}</h3>
+        <div className="flex items-center gap-2 text-xs text-nutror-muted mb-3">
+          <span className="flex items-center gap-1"><LayoutGrid className="w-3 h-3" /> {course.module_count || 0} Módulos</span>
+          <span className="flex items-center gap-1"><BookOpen className="w-3 h-3" /> {course.lesson_count || 0} Aulas</span>
+        </div>
+        
+        {percent > 0 && (
+          <div className="mb-4">
+            <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider text-nutror-muted mb-1">
+              <span>Progresso</span>
+              <span>{percent}%</span>
+            </div>
+            <div className="w-full bg-white/5 h-1 rounded-full overflow-hidden">
+              <div className="bg-nutror-accent h-full" style={{ width: `${percent}%` }} />
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded bg-nutror-accent/20 flex items-center justify-center">
+            <div className="w-3 h-3 bg-nutror-accent rounded-full" />
+          </div>
+          <span className="text-[10px] font-bold uppercase tracking-wider text-nutror-muted">EAD ITL</span>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
 
 // --- Main App ---
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [view, setView] = useState<'login' | 'home' | 'course' | 'lesson' | 'admin'>('login');
+  const [view, setView] = useState<'login' | 'home' | 'course' | 'lesson' | 'admin' | 'notes'>('login');
   const [adminTab, setAdminTab] = useState<'courses' | 'members'>('courses');
   const [courses, setCourses] = useState<Course[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -160,6 +196,13 @@ export default function App() {
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
+  const [completedLessonIds, setCompletedLessonIds] = useState<number[]>([]);
+  const [lessonComments, setLessonComments] = useState<any[]>([]);
+  const [lessonNotes, setLessonNotes] = useState<any[]>([]);
+  const [allUserNotes, setAllUserNotes] = useState<any[]>([]);
+  const [lessonTab, setLessonTab] = useState<'description' | 'comments' | 'notes'>('description');
+  const [newNote, setNewNote] = useState('');
+  const [newComment, setNewComment] = useState('');
 
   // Login form state
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
@@ -189,11 +232,18 @@ export default function App() {
     }
   }, []);
 
+  useEffect(() => {
+    if (currentUser && view === 'notes') {
+      fetchAllUserNotes(currentUser.id);
+    }
+  }, [view, currentUser]);
+
   const fetchData = (user: User) => {
     fetchCourses(user);
     if (user.role === 'admin') {
       fetchUsers();
     }
+    fetchAllUserNotes(user.id);
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -285,9 +335,125 @@ export default function App() {
     }
   };
 
+  const getYoutubeEmbedUrl = (url: string) => {
+    if (!url) return '';
+    let videoId = '';
+    if (url.includes('youtube.com/watch?v=')) {
+      videoId = url.split('v=')[1].split('&')[0];
+    } else if (url.includes('youtu.be/')) {
+      videoId = url.split('youtu.be/')[1].split('?')[0];
+    } else if (url.includes('youtube.com/embed/')) {
+      videoId = url.split('embed/')[1].split('?')[0];
+    }
+    return `https://www.youtube.com/embed/${videoId}`;
+  };
+
+  const fetchCompletedLessons = async (userId: number) => {
+    try {
+      const res = await fetch(`/api/users/${userId}/completed`);
+      const data = await res.json();
+      setCompletedLessonIds(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const toggleLessonCompletion = async (lessonId: number) => {
+    if (!currentUser) return;
+    const isCompleted = completedLessonIds.includes(lessonId);
+    const method = isCompleted ? 'DELETE' : 'POST';
+    try {
+      await fetch(`/api/users/${currentUser.id}/completed/${lessonId}`, { method });
+      fetchCompletedLessons(currentUser.id);
+      // Also refresh course list to update progress bars if needed
+      fetchCourses(currentUser);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchLessonComments = async (lessonId: number) => {
+    try {
+      const res = await fetch(`/api/lessons/${lessonId}/comments`);
+      const data = await res.json();
+      setLessonComments(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleAddComment = async () => {
+    if (!currentUser || !selectedLesson || !newComment.trim()) return;
+    try {
+      await fetch(`/api/lessons/${selectedLesson.id}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: currentUser.id, content: newComment })
+      });
+      setNewComment('');
+      fetchLessonComments(selectedLesson.id);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchLessonNotes = async (userId: number, lessonId: number) => {
+    try {
+      const res = await fetch(`/api/users/${userId}/lessons/${lessonId}/notes`);
+      const data = await res.json();
+      setLessonNotes(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchAllUserNotes = async (userId: number) => {
+    try {
+      const res = await fetch(`/api/users/${userId}/notes`);
+      const data = await res.json();
+      setAllUserNotes(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleAddNote = async () => {
+    if (!currentUser || !selectedLesson || !newNote.trim()) return;
+    try {
+      await fetch(`/api/users/${currentUser.id}/lessons/${selectedLesson.id}/notes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: newNote })
+      });
+      setNewNote('');
+      fetchLessonNotes(currentUser.id, selectedLesson.id);
+      fetchAllUserNotes(currentUser.id);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDeleteNote = async (noteId: number) => {
+    if (!confirm('Deseja excluir esta anotação?')) return;
+    try {
+      await fetch(`/api/notes/${noteId}`, { method: 'DELETE' });
+      if (currentUser) {
+        if (selectedLesson) fetchLessonNotes(currentUser.id, selectedLesson.id);
+        fetchAllUserNotes(currentUser.id);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const handleLessonClick = (lesson: Lesson) => {
     setSelectedLesson(lesson);
     setView('lesson');
+    if (currentUser) {
+      fetchCompletedLessons(currentUser.id);
+      fetchLessonComments(lesson.id);
+      fetchLessonNotes(currentUser.id, lesson.id);
+    }
   };
 
   const handleAddCourse = async () => {
@@ -366,15 +532,17 @@ export default function App() {
     );
   };
 
-  const getYoutubeEmbedUrl = (url: string) => {
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-    const match = url.match(regExp);
-    return (match && match[2].length === 11) ? `https://www.youtube.com/embed/${match[2]}` : url;
-  };
-
   return (
     <div className="min-h-screen flex flex-col">
-      {view !== 'login' && <Header onAdminClick={() => setView('admin')} user={currentUser} onLogout={handleLogout} />}
+      {view !== 'login' && (
+        <Header 
+          onAdminClick={() => setView('admin')} 
+          user={currentUser} 
+          onLogout={handleLogout}
+          setView={setView}
+          currentView={view}
+        />
+      )}
 
       <main className="flex-1">
         <AnimatePresence mode="wait">
@@ -596,14 +764,14 @@ export default function App() {
               className="flex h-[calc(100vh-64px)] overflow-hidden"
             >
               {/* Main Content */}
-              <div className="flex-1 flex flex-col bg-black">
-                <div className="p-4 flex items-center justify-between bg-nutror-bg/50 border-b border-white/5">
+              <div className="flex-1 flex flex-col bg-black overflow-y-auto custom-scrollbar">
+                <div className="p-4 flex items-center justify-between bg-nutror-bg/50 border-b border-white/5 sticky top-0 z-10 backdrop-blur-md">
                   <div className="flex items-center gap-4">
                     <button onClick={() => setView('course')} className="p-2 hover:bg-white/5 rounded-full">
                       <ChevronRight className="w-5 h-5 rotate-180" />
                     </button>
                     <div>
-                      <p className="text-xs text-nutror-muted uppercase tracking-widest font-bold">{selectedCourse.title}</p>
+                      <p className="text-[10px] text-nutror-muted uppercase tracking-widest font-bold">{selectedCourse.title}</p>
                       <h2 className="text-lg font-bold">{selectedLesson.title}</h2>
                     </div>
                   </div>
@@ -613,45 +781,190 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="flex-1 relative bg-black flex items-center justify-center">
+                <div className="relative bg-black flex items-center justify-center aspect-video w-full max-w-5xl mx-auto mt-4 shadow-2xl">
                   <iframe 
                     src={getYoutubeEmbedUrl(selectedLesson.youtube_url)}
-                    className="w-full h-full max-h-[80vh] aspect-video"
+                    className="w-full h-full"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                     allowFullScreen
                   />
                 </div>
 
-                {selectedLesson.description && (
-                  <div className="p-6 bg-nutror-bg/30 border-t border-white/5 overflow-y-auto max-h-[200px]">
-                    <h3 className="text-sm font-bold text-nutror-accent uppercase tracking-wider mb-2">Sobre esta aula</h3>
-                    <p className="text-sm text-nutror-muted leading-relaxed whitespace-pre-wrap">
-                      {selectedLesson.description}
-                    </p>
-                  </div>
-                )}
+                <div className="max-w-5xl mx-auto w-full p-6">
+                  {/* Navigation & Completion */}
+                  <div className="flex items-center justify-between mb-8 pb-8 border-b border-white/5">
+                    <button 
+                      onClick={() => {
+                        const allLessons = selectedCourse.modules.flatMap(m => m.lessons);
+                        const currentIndex = allLessons.findIndex(l => l.id === selectedLesson.id);
+                        if (currentIndex > 0) handleLessonClick(allLessons[currentIndex - 1]);
+                      }}
+                      className="flex items-center gap-2 text-sm text-nutror-muted hover:text-white transition-colors group"
+                    >
+                      <ChevronRight className="w-4 h-4 rotate-180 group-hover:-translate-x-1 transition-transform" /> 
+                      <div className="text-left">
+                        <p className="text-[10px] font-bold opacity-50">AULA ANTERIOR</p>
+                        <p className="text-xs">Voltar</p>
+                      </div>
+                    </button>
 
-                <div className="p-6 bg-nutror-bg border-t border-white/5 flex items-center justify-between">
-                  <button className="flex items-center gap-2 text-sm text-nutror-muted hover:text-white">
-                    <ChevronRight className="w-4 h-4 rotate-180" /> AULA ANTERIOR
-                  </button>
-                  <button className="bg-white text-black px-6 py-2 rounded-lg font-bold text-sm hover:bg-zinc-200 transition-colors">
-                    Marcar como Concluída
-                  </button>
-                  <button className="flex items-center gap-2 text-sm text-nutror-muted hover:text-white">
-                    PRÓXIMA AULA <ChevronRight className="w-4 h-4" />
-                  </button>
+                    <button 
+                      onClick={() => toggleLessonCompletion(selectedLesson.id)}
+                      className={`px-8 py-3 rounded-xl font-bold text-sm transition-all ${
+                        completedLessonIds.includes(selectedLesson.id) 
+                          ? 'bg-nutror-accent text-black' 
+                          : 'bg-white/10 text-white hover:bg-white/20'
+                      }`}
+                    >
+                      {completedLessonIds.includes(selectedLesson.id) ? 'Concluída' : 'Marcar como Concluída'}
+                    </button>
+
+                    <button 
+                      onClick={() => {
+                        const allLessons = selectedCourse.modules.flatMap(m => m.lessons);
+                        const currentIndex = allLessons.findIndex(l => l.id === selectedLesson.id);
+                        if (currentIndex < allLessons.length - 1) handleLessonClick(allLessons[currentIndex + 1]);
+                      }}
+                      className="flex items-center gap-2 text-sm text-nutror-muted hover:text-white transition-colors group"
+                    >
+                      <div className="text-right">
+                        <p className="text-[10px] font-bold opacity-50">PRÓXIMA AULA</p>
+                        <p className="text-xs">Avançar</p>
+                      </div>
+                      <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                    </button>
+                  </div>
+
+                  {/* Tabs */}
+                  <div className="flex gap-8 border-b border-white/5 mb-6">
+                    {(['description', 'comments', 'notes'] as const).map((tab) => (
+                      <button
+                        key={tab}
+                        onClick={() => setLessonTab(tab)}
+                        className={`pb-4 text-sm font-bold uppercase tracking-wider transition-all relative ${
+                          lessonTab === tab ? 'text-nutror-accent' : 'text-nutror-muted hover:text-white'
+                        }`}
+                      >
+                        {tab === 'description' ? 'Descrição' : tab === 'comments' ? 'Comentários' : 'Anotações'}
+                        {lessonTab === tab && (
+                          <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-nutror-accent" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Tab Content */}
+                  <div className="min-h-[300px]">
+                    {lessonTab === 'description' && (
+                      <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                        <p className="text-nutror-muted leading-relaxed whitespace-pre-wrap">
+                          {selectedLesson.description || 'Nenhuma descrição disponível para esta aula.'}
+                        </p>
+                      </div>
+                    )}
+
+                    {lessonTab === 'comments' && (
+                      <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-6">
+                        <div className="flex gap-4">
+                          <div className="w-10 h-10 rounded-full bg-zinc-800 flex-shrink-0" />
+                          <div className="flex-1">
+                            <textarea 
+                              value={newComment}
+                              onChange={e => setNewComment(e.target.value)}
+                              placeholder="Escreva um comentário..."
+                              className="w-full bg-nutror-card border border-white/10 rounded-xl p-4 text-sm focus:outline-none focus:border-nutror-accent h-24 resize-none"
+                            />
+                            <div className="flex justify-end mt-2">
+                              <button 
+                                onClick={handleAddComment}
+                                className="bg-nutror-accent text-black px-6 py-2 rounded-lg font-bold text-sm hover:brightness-110"
+                              >
+                                Comentar
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="space-y-6">
+                          {lessonComments.map(comment => (
+                            <div key={comment.id} className="flex gap-4">
+                              <div className="w-10 h-10 rounded-full bg-nutror-accent/20 text-nutror-accent flex items-center justify-center font-bold text-xs">
+                                {comment.user_name?.charAt(0)}
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="font-bold text-sm">{comment.user_name}</span>
+                                  <span className="text-[10px] text-nutror-muted uppercase">{new Date(comment.created_at).toLocaleDateString()}</span>
+                                </div>
+                                <p className="text-sm text-nutror-muted">{comment.content}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {lessonTab === 'notes' && (
+                      <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-6">
+                        <div className="bg-nutror-card border border-white/10 rounded-xl p-6">
+                          <h4 className="text-sm font-bold mb-4">Nova Anotação</h4>
+                          <textarea 
+                            value={newNote}
+                            onChange={e => setNewNote(e.target.value)}
+                            placeholder="Suas anotações privadas sobre esta aula..."
+                            className="w-full bg-nutror-bg border border-white/10 rounded-xl p-4 text-sm focus:outline-none focus:border-nutror-accent h-32 resize-none mb-4"
+                          />
+                          <div className="flex justify-end">
+                            <button 
+                              onClick={handleAddNote}
+                              className="bg-nutror-accent text-black px-6 py-2 rounded-lg font-bold text-sm hover:brightness-110"
+                            >
+                              Salvar Anotação
+                            </button>
+                          </div>
+                        </div>
+                        <div className="space-y-4">
+                          {lessonNotes.map(note => (
+                            <div key={note.id} className="bg-white/5 border border-white/5 rounded-xl p-4 group">
+                              <div className="flex justify-between items-start mb-2">
+                                <span className="text-[10px] text-nutror-muted uppercase font-bold">{new Date(note.created_at).toLocaleString()}</span>
+                                <button onClick={() => handleDeleteNote(note.id)} className="text-nutror-muted hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                              <p className="text-sm text-nutror-muted whitespace-pre-wrap">{note.content}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
               {/* Sidebar */}
               <div className="w-96 glass border-l border-white/5 flex flex-col">
                 <div className="p-6 border-b border-white/5">
-                  <h3 className="font-bold mb-2">{selectedCourse.title}</h3>
-                  <div className="w-full bg-white/10 h-1.5 rounded-full overflow-hidden">
-                    <div className="bg-nutror-accent h-full w-2/3" />
-                  </div>
-                  <p className="text-[10px] text-nutror-muted mt-2 font-bold uppercase">65% CONCLUÍDO: 17 DE 26 AULAS</p>
+                  <h3 className="font-bold mb-2 truncate">{selectedCourse.title}</h3>
+                  {(() => {
+                    const allLessons = selectedCourse.modules.flatMap(m => m.lessons);
+                    const total = allLessons.length;
+                    const completed = allLessons.filter(l => completedLessonIds.includes(l.id)).length;
+                    const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+                    return (
+                      <>
+                        <div className="w-full bg-white/10 h-1.5 rounded-full overflow-hidden">
+                          <motion.div 
+                            initial={{ width: 0 }}
+                            animate={{ width: `${percent}%` }}
+                            className="bg-nutror-accent h-full" 
+                          />
+                        </div>
+                        <p className="text-[10px] text-nutror-muted mt-2 font-bold uppercase">
+                          {percent}% CONCLUÍDO: {completed} DE {total} AULAS
+                        </p>
+                      </>
+                    );
+                  })()}
                 </div>
                 
                 <div className="p-4">
@@ -660,32 +973,53 @@ export default function App() {
                     <input 
                       type="text" 
                       placeholder="Procurar Aula" 
-                      className="w-full bg-nutror-bg border border-white/10 rounded-md py-2 pl-10 pr-4 text-sm focus:outline-none"
+                      className="w-full bg-nutror-bg border border-white/10 rounded-md py-2 pl-10 pr-4 text-sm focus:outline-none focus:border-nutror-accent/50"
                     />
                   </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto">
+                <div className="flex-1 overflow-y-auto custom-scrollbar">
                   {selectedCourse.modules?.map((module, mIdx) => (
-                    <div key={module.id}>
-                      <div className="p-4 bg-white/5 flex items-center justify-between cursor-pointer border-b border-white/5">
+                    <div key={module.id} className="border-b border-white/5 last:border-0">
+                      <div className="p-4 bg-white/5 flex items-center justify-between cursor-pointer hover:bg-white/10 transition-colors">
                         <div className="flex items-center gap-3">
-                          <div className="w-5 h-5 rounded-full border-2 border-nutror-accent flex items-center justify-center">
-                            <div className="w-2 h-2 bg-nutror-accent rounded-full" />
+                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                            module.lessons.every(l => completedLessonIds.includes(l.id)) 
+                              ? 'border-nutror-accent bg-nutror-accent' 
+                              : 'border-nutror-accent'
+                          }`}>
+                            {module.lessons.every(l => completedLessonIds.includes(l.id)) ? (
+                              <ChevronRight className="w-3 h-3 text-black" />
+                            ) : (
+                              <div className="w-1.5 h-1.5 bg-nutror-accent rounded-full" />
+                            )}
                           </div>
-                          <span className="text-sm font-bold">{module.title}</span>
+                          <span className="text-sm font-bold truncate max-w-[200px]">{module.title}</span>
                         </div>
-                        <ChevronDown className="w-4 h-4 text-nutror-muted" />
+                        <span className="text-[10px] text-nutror-muted font-bold">{module.lessons.length} aulas</span>
                       </div>
-                      <div>
+                      <div className="bg-black/20">
                         {module.lessons.map((lesson) => (
                           <div 
                             key={lesson.id}
-                            onClick={() => setSelectedLesson(lesson)}
-                            className={`p-4 pl-12 flex items-center gap-3 cursor-pointer hover:bg-white/5 transition-colors ${selectedLesson.id === lesson.id ? 'bg-nutror-accent/10 border-l-2 border-nutror-accent' : ''}`}
+                            onClick={() => handleLessonClick(lesson)}
+                            className={`p-4 pl-12 flex items-center justify-between cursor-pointer hover:bg-white/5 transition-colors group ${
+                              selectedLesson.id === lesson.id ? 'bg-nutror-accent/5 border-l-2 border-nutror-accent' : ''
+                            }`}
                           >
-                            <div className={`w-4 h-4 rounded-full border ${selectedLesson.id === lesson.id ? 'border-nutror-accent bg-nutror-accent' : 'border-white/20'}`} />
-                            <span className={`text-sm ${selectedLesson.id === lesson.id ? 'text-white font-medium' : 'text-nutror-muted'}`}>{lesson.title}</span>
+                            <div className="flex items-center gap-3">
+                              <div className={`w-4 h-4 rounded-full border flex items-center justify-center transition-all ${
+                                completedLessonIds.includes(lesson.id) 
+                                  ? 'border-nutror-accent bg-nutror-accent' 
+                                  : 'border-white/20 group-hover:border-white/40'
+                              }`}>
+                                {completedLessonIds.includes(lesson.id) && <ChevronRight className="w-2.5 h-2.5 text-black" />}
+                              </div>
+                              <span className={`text-sm transition-colors ${
+                                selectedLesson.id === lesson.id ? 'text-nutror-accent font-medium' : 'text-nutror-muted group-hover:text-white'
+                              }`}>{lesson.title}</span>
+                            </div>
+                            {selectedLesson.id === lesson.id && <Play className="w-3 h-3 text-nutror-accent animate-pulse" />}
                           </div>
                         ))}
                       </div>
@@ -696,6 +1030,87 @@ export default function App() {
             </motion.div>
           )}
 
+          {view === 'notes' && (
+            <motion.div 
+              key="notes"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="max-w-5xl mx-auto px-6 py-12"
+            >
+              <div className="flex items-center justify-between mb-12">
+                <div>
+                  <h1 className="text-4xl font-bold mb-2">Minhas Anotações</h1>
+                  <p className="text-nutror-muted">Todas as suas anotações privadas organizadas por curso e aula.</p>
+                </div>
+                <div className="w-12 h-12 rounded-2xl bg-nutror-accent/10 flex items-center justify-center text-nutror-accent">
+                  <FileText className="w-6 h-6" />
+                </div>
+              </div>
+
+              {allUserNotes.length === 0 ? (
+                <div className="bg-nutror-card rounded-3xl p-12 text-center border border-white/5">
+                  <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-6">
+                    <Bookmark className="w-8 h-8 text-nutror-muted" />
+                  </div>
+                  <h3 className="text-xl font-bold mb-2">Nenhuma anotação ainda</h3>
+                  <p className="text-nutror-muted max-w-sm mx-auto">
+                    Suas anotações feitas durante as aulas aparecerão aqui automaticamente.
+                  </p>
+                  <button 
+                    onClick={() => setView('home')}
+                    className="mt-8 bg-white text-black px-8 py-3 rounded-xl font-bold hover:bg-zinc-200 transition-colors"
+                  >
+                    Explorar Cursos
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-6">
+                  {allUserNotes.map(note => (
+                    <motion.div 
+                      key={note.id}
+                      layout
+                      className="bg-nutror-card rounded-2xl border border-white/5 p-6 hover:border-nutror-accent/30 transition-all group"
+                    >
+                      <div className="flex justify-between items-start mb-4">
+                        <div>
+                          <p className="text-[10px] font-bold text-nutror-accent uppercase tracking-widest mb-1">{note.course_title}</p>
+                          <h3 className="font-bold text-lg">{note.lesson_title}</h3>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-nutror-muted font-bold uppercase">{new Date(note.created_at).toLocaleDateString()}</span>
+                          <button 
+                            onClick={() => handleDeleteNote(note.id)}
+                            className="p-2 hover:bg-red-500/10 rounded-lg text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="bg-black/20 rounded-xl p-4 border border-white/5">
+                        <p className="text-sm text-nutror-muted leading-relaxed whitespace-pre-wrap">{note.content}</p>
+                      </div>
+                      <div className="mt-4 flex justify-end">
+                        <button 
+                          onClick={async () => {
+                            const course = courses.find(c => c.id === note.course_id) || await fetchCourseDetails(note.course_id, currentUser?.id);
+                            if (course) {
+                              setSelectedCourse(course);
+                              const lesson = course.modules.flatMap(m => m.lessons).find(l => l.id === note.lesson_id);
+                              if (lesson) handleLessonClick(lesson);
+                            }
+                          }}
+                          className="text-xs font-bold text-nutror-accent flex items-center gap-1 hover:underline"
+                        >
+                          Ir para aula <ChevronRight className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          )}
           {view === 'admin' && (
             <motion.div 
               key="admin"
